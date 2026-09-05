@@ -403,16 +403,11 @@
 
     </visual>
 
-    <collision>
-
+    <collision name="gripper_base_collision">
+      <origin xyz="0 0 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_base.dae"/>
-
+        <box size="0.08 0.06 0.04"/>
       </geometry>
-
-    <origin xyz = "0.0 0 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>

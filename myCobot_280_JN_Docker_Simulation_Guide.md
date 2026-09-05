@@ -520,12 +520,13 @@ ros2 launch mycobot_280jn \
 3. Observe `/joint_states` and TF frames. — **done** (`joint_monitor`, `tf_explorer`)
 4. Write a Python ROS 2 node for predefined joint poses. — **done** (`pose_sequence`, `gazebo_pose_commander`)
 5. Add Gazebo physics and `ros2_control`. — **done** (`mycobot_280jn_sim`, `gazebo_sim.launch.py`)
-6. Configure MoveIt 2 motion planning. — **in progress** (`mycobot_280jn_moveit_config`; SRDF collision tuning ongoing)
+6. Configure MoveIt 2 motion planning. — **in progress** (`mycobot_280jn_moveit_config`, `mycobot_moveit_projects`; SRDF collision tuning ongoing)
 7. Implement fixed-position pick-and-place. — **done** (`gazebo_pose_commander -- pick_cube`)
-8. Add collision objects and obstacle avoidance.
-9. Add a simulated RGB or depth camera.
-10. Integrate OpenCV and YOLO.
-11. Explore imitation learning and reinforcement learning.
+8. Learn pick-and-place state machines. — **done** (`manipulation_state_machine`, `manipulation_state_machine_ui`; theory in [THEORY.md](mycobot_sim_projects/THEORY.md))
+9. Add collision objects and obstacle avoidance. — **started** (`planning_scene_objects`, `test_obstacle`)
+10. Add a simulated RGB or depth camera.
+11. Integrate OpenCV and YOLO.
+12. Explore imitation learning and reinforcement learning.
 
 The slider and RViz projects are the correct early exercises. Gazebo, hand-tuned pick, and MoveIt build on that foundation — see [README.md](README.md) for current run commands.
 
@@ -538,6 +539,7 @@ The slider and RViz projects are the correct early exercises. Gazebo, hand-tuned
 - **Calibrated pick-and-lift** runs via `ros2 run mycobot_sim_projects gazebo_pose_commander -- pick_cube`.
 - **MoveIt 2** config exists in `mycobot_280jn_moveit_config` (plan in RViz, execute on the same Gazebo `arm_controller`).
 - **Demo state machine** available as CLI (`manipulation_state_machine`) and Tkinter UI (`manipulation_state_machine_ui`).
+- **C++ MoveIt nodes** in `mycobot_moveit_projects` (`named_targets`, `pose_target`, `planning_scene_objects`, `test_obstacle`).
 - `mycobot_sim_projects` also provides RViz demos, keyboard control, and gripper commanders.
 - Builds and ROS 2 Humble launch commands must run inside Docker.
 - `docker` commands (start/exec/stop) must run on the host prompt, never inside the container; see [Section 9](#9-recovering-when-a-docker-command-was-run-inside-the-container).
@@ -557,7 +559,7 @@ source /root/mycobot_ws/install/setup.bash
 
 ```bash
 cd /root/mycobot_ws
-colcon build --packages-select mycobot_280jn_sim mycobot_sim_projects mycobot_280jn_moveit_config
+colcon build --packages-select mycobot_280jn_sim mycobot_sim_projects mycobot_280jn_moveit_config mycobot_moveit_projects
 ```
 
 ### Launch Gazebo + controllers
@@ -582,11 +584,35 @@ Terminal 2:
 ros2 launch mycobot_280jn_moveit_config gazebo_move_group.launch.py
 ```
 
-Terminal 3:
+Terminal 3 (RViz planning):
 
 ```bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_rviz.launch.py
 ```
+
+Terminal 3 (C++ demos — instead of RViz):
+
+```bash
+ros2 launch mycobot_moveit_projects named_targets.launch.py
+# or
+ros2 launch mycobot_moveit_projects pose_target.launch.py
+```
+
+Optional — sync MoveIt planning scene:
+
+```bash
+ros2 run mycobot_moveit_projects planning_scene_objects
+```
+
+### State machine UI (optional — Gazebo must already be running)
+
+Terminal 2:
+
+```bash
+ros2 run mycobot_sim_projects manipulation_state_machine_ui
+```
+
+On the host first: `xhost +local:docker`. This runs the generic FSM demo — **not** the calibrated `pick_cube` sequence. State-machine theory: [README.md — State machine](README.md#state-machine-theory--usage).
 
 ### Verify world file installed correctly
 

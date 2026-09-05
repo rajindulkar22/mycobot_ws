@@ -23,7 +23,7 @@ project-list numbering.
 | 04 | Forward kinematics and TF explorer | [tf_explorer.py](#tf_explorerpy--end-effector-pose-monitor) | ✓ Done |
 | 05 | Gazebo trajectory-controller pose commander | [gazebo_pose_commander.py](#gazebo_pose_commanderpy--named-pose-trajectory-commander) | ✓ Done |
 | 06 | Gazebo gripper-action commander | [gripper_commander.py](#gripper_commanderpy--named-position-gripper-commander) | ✓ Done |
-| 07 | Pick-and-place manipulation state machine | [manipulation_state_machine.py](#manipulation_state_machinepy--pick-and-place-state-machine) | ✓ Done |
+| 07 | Pick-and-place manipulation state machine | [manipulation_state_machine.py](#manipulation_state_machinepy--pick-and-place-state-machine) (+ [UI layer](#ui-layer-manipulation_state_machine_uipy)) | ✓ Done |
 
 Since project 05 was marked done, `gazebo_pose_commander.py` grew a second,
 tuned capability — a full top-down `pick_cube` grasp sequence for the
@@ -1051,6 +1051,45 @@ stateDiagram-v2
 
 Only `COMPLETE` and `FAILED` return out of `run()`'s loop; every other state
 always produces a transition.
+
+### UI layer (`manipulation_state_machine_ui.py`)
+
+**Node:** `manipulation_state_machine_ui`
+**Implementation:** Tkinter front-end wrapping the same `ManipulationStateMachine`
+class — no duplicate FSM logic.
+
+The GUI runs the FSM in a **background thread** while a `MultiThreadedExecutor`
+spins the ROS node. The main thread polls `node.state` every 200 ms to repaint
+a horizontal **state-flow strip** (`TASK_FLOW` order):
+
+```
+HOME → OPEN_GRIPPER → READY → APPROACH → CLOSE_GRIPPER
+     → LIFT → RELEASE → RETURN_HOME → COMPLETE
+```
+
+Color coding:
+
+| Color | Meaning |
+|---|---|
+| Gray | Pending (not yet reached) |
+| Yellow | Current active state |
+| Green | Completed earlier states |
+| Red | Failed state (when `failed_state` matches) |
+| Orange | Entire strip during `RECOVERY` |
+
+Controls:
+
+| Button | Effect |
+|---|---|
+| **Start sequence** | `reset()` then `run()` in a worker thread |
+| **Stop** | `request_stop()` — checked at the **start of each loop iteration**, so the current arm/gripper action finishes before exit |
+| **Reset** | `reset()` to `HOME` (disabled while running) |
+
+Timing spinboxes (`--arm-duration`, `--pause`) map directly to the node's
+constructor fields and are locked while a run is active.
+
+**Requires `DISPLAY`** (same X11 forwarding as RViz). Does **not** implement
+`pick_cube` — use `gazebo_pose_commander -- pick_cube` for the calibrated grasp.
 
 ---
 

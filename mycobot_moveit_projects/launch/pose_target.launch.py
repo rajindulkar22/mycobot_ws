@@ -12,10 +12,10 @@ def generate_launch_description():
         .to_moveit_configs()
     )
 
-    named_targets_node = Node(
+    pose_target_node = Node(
         package="mycobot_moveit_projects",
-        executable="named_targets",
-        name="moveit_named_targets",
+        executable="pose_target",
+        name="moveit_pose_target",
         output="screen",
         parameters=[
             moveit_config.to_dict(),
@@ -23,13 +23,4 @@ def generate_launch_description():
         ],
     )
 
-    return LaunchDescription([named_targets_node])
-
-"""This provides the node with:
-
-URDF robot model
-SRDF named states
-Kinematics configuration
-Joint limits
-OMPL configuration
-Gazebo simulation time"""
+    return LaunchDescription([pose_target_node])
