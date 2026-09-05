@@ -1,0 +1,50 @@
+[0.000000] (-) TimerEvent: {}
+[0.000135] (-) JobUnselected: {'identifier': 'mecharm'}
+[0.000280] (-) JobUnselected: {'identifier': 'mecharm_communication'}
+[0.000347] (-) JobUnselected: {'identifier': 'mecharm_interfaces'}
+[0.000484] (-) JobUnselected: {'identifier': 'mecharm_pi'}
+[0.000533] (-) JobUnselected: {'identifier': 'myarm_300'}
+[0.000546] (-) JobUnselected: {'identifier': 'myarm_c650'}
+[0.000557] (-) JobUnselected: {'identifier': 'myarm_m750'}
+[0.000580] (-) JobUnselected: {'identifier': 'mybuddy'}
+[0.000640] (-) JobUnselected: {'identifier': 'mycobot_280'}
+[0.000653] (-) JobUnselected: {'identifier': 'mycobot_280_arduino'}
+[0.000660] (-) JobUnselected: {'identifier': 'mycobot_280_moveit2'}
+[0.000672] (-) JobUnselected: {'identifier': 'mycobot_280_moveit2_control'}
+[0.000681] (-) JobUnselected: {'identifier': 'mycobot_280_rdkx5'}
+[0.000709] (-) JobUnselected: {'identifier': 'mycobot_280_riscv'}
+[0.000752] (-) JobUnselected: {'identifier': 'mycobot_280_x3pi'}
+[0.000778] (-) JobUnselected: {'identifier': 'mycobot_280arduino_moveit2'}
+[0.000827] (-) JobUnselected: {'identifier': 'mycobot_280jn'}
+[0.000841] (-) JobUnselected: {'identifier': 'mycobot_280pi'}
+[0.000849] (-) JobUnselected: {'identifier': 'mycobot_280rdkx5_moveit2'}
+[0.000870] (-) JobUnselected: {'identifier': 'mycobot_320'}
+[0.000882] (-) JobUnselected: {'identifier': 'mycobot_320_riscv'}
+[0.000894] (-) JobUnselected: {'identifier': 'mycobot_320pi'}
+[0.000902] (-) JobUnselected: {'identifier': 'mycobot_600'}
+[0.000951] (-) JobUnselected: {'identifier': 'mycobot_630'}
+[0.000969] (-) JobUnselected: {'identifier': 'mycobot_630_moveit2'}
+[0.000979] (-) JobUnselected: {'identifier': 'mycobot_communication'}
+[0.000987] (-) JobUnselected: {'identifier': 'mycobot_description'}
+[0.001113] (-) JobUnselected: {'identifier': 'mycobot_interfaces'}
+[0.001152] (-) JobUnselected: {'identifier': 'mycobot_pro450_interfaces'}
+[0.001192] (-) JobUnselected: {'identifier': 'mycobot_pro_450'}
+[0.001300] (-) JobUnselected: {'identifier': 'mycobot_sim_projects'}
+[0.001313] (-) JobUnselected: {'identifier': 'mypalletizer_260'}
+[0.001327] (-) JobUnselected: {'identifier': 'mypalletizer_260_pi'}
+[0.001406] (-) JobUnselected: {'identifier': 'mypalletizer_communication'}
+[0.001416] (-) JobUnselected: {'identifier': 'mypalletizer_interfaces'}
+[0.001423] (-) JobUnselected: {'identifier': 'pro450_moveit2'}
+[0.001435] (-) JobUnselected: {'identifier': 'pro450_moveit2_control'}
+[0.001444] (-) JobUnselected: {'identifier': 'ultraarm'}
+[0.001574] (mycobot_moveit_projects) JobQueued: {'identifier': 'mycobot_moveit_projects', 'dependencies': OrderedDict()}
+[0.001594] (mycobot_280jn_sim) JobQueued: {'identifier': 'mycobot_280jn_sim', 'dependencies': OrderedDict({'mycobot_description': '/home/raj/mycobot_ws/install/mycobot_description'})}
+[0.001614] (mycobot_280jn_moveit_config) JobQueued: {'identifier': 'mycobot_280jn_moveit_config', 'dependencies': OrderedDict({'mycobot_description': '/home/raj/mycobot_ws/install/mycobot_description', 'mycobot_280jn_sim': '/home/raj/mycobot_ws/install/mycobot_280jn_sim'})}
+[0.001645] (mycobot_280jn_sim) JobStarted: {'identifier': 'mycobot_280jn_sim'}
+[0.010929] (mycobot_280jn_sim) StderrLine: {'line': b'Traceback (most recent call last):\n  File "/usr/lib/python3/dist-packages/colcon_core/executor/__init__.py", line 91, in __call__\n    rc = await self.task(*args, **kwargs)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_core/task/__init__.py", line 120, in __call__\n    return await task_method(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_ros/task/ament_cmake/build.py", line 84, in build\n    create_environment_scripts(\n  File "/usr/lib/python3/dist-packages/colcon_core/environment/__init__.py", line 91, in create_environment_scripts\n    create_file_with_runtime_dependencies(prefix_path, pkg))\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_core/environment/__init__.py", line 174, in create_file_with_runtime_dependencies\n    path.write_text(\n  File "/usr/lib/python3.12/pathlib.py", line 1049, in write_text\n    with self.open(mode=\'w\', encoding=encoding, errors=errors, newline=newline) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3.12/pathlib.py", line 1015, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: \'/home/raj/mycobot_ws/install/mycobot_280jn_sim/share/colcon-core/packages/mycobot_280jn_sim\'\n'}
+[0.011499] (mycobot_280jn_sim) JobEnded: {'identifier': 'mycobot_280jn_sim', 'rc': 1}
+[0.011992] (mycobot_moveit_projects) JobStarted: {'identifier': 'mycobot_moveit_projects'}
+[0.017726] (mycobot_moveit_projects) StderrLine: {'line': b'Traceback (most recent call last):\n  File "/usr/lib/python3/dist-packages/colcon_core/executor/__init__.py", line 91, in __call__\n    rc = await self.task(*args, **kwargs)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_core/task/__init__.py", line 120, in __call__\n    return await task_method(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_ros/task/ament_cmake/build.py", line 84, in build\n    create_environment_scripts(\n  File "/usr/lib/python3/dist-packages/colcon_core/environment/__init__.py", line 91, in create_environment_scripts\n    create_file_with_runtime_dependencies(prefix_path, pkg))\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3/dist-packages/colcon_core/environment/__init__.py", line 174, in create_file_with_runtime_dependencies\n    path.write_text(\n  File "/usr/lib/python3.12/pathlib.py", line 1049, in write_text\n    with self.open(mode=\'w\', encoding=encoding, errors=errors, newline=newline) as f:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File "/usr/lib/python3.12/pathlib.py", line 1015, in open\n    return io.open(self, mode, buffering, encoding, errors, newline)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nPermissionError: [Errno 13] Permission denied: \'/home/raj/mycobot_ws/install/mycobot_moveit_projects/share/colcon-core/packages/mycobot_moveit_projects\'\n'}
+[0.017967] (mycobot_moveit_projects) JobEnded: {'identifier': 'mycobot_moveit_projects', 'rc': 1}
+[0.027951] (mycobot_280jn_moveit_config) JobSkipped: {'identifier': 'mycobot_280jn_moveit_config'}
+[0.027982] (-) EventReactorShutdown: {}

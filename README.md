@@ -43,6 +43,7 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 | Pick the 25 mm cube reliably | `gazebo_pose_commander -- pick_cube` | `manipulation_state_machine` (generic poses) |
 | Learn state machines visually | `manipulation_state_machine_ui` | — |
 | Plan collision-aware paths in RViz | MoveIt `gazebo_move_group` + RViz | Raw joint publishing |
+| Cartesian straight-line descend demo | `mycobot_moveit_projects cartesian_path` | `pose_target` (uses OMPL IK, not Cartesian interpolation) |
 | Move to SRDF named states from C++ | `mycobot_moveit_projects named_targets` | — |
 | Cartesian descend demo (FK→IK→OMPL) | `mycobot_moveit_projects pose_target` | — |
 | Add table/cube to MoveIt planning scene | `planning_scene_objects` | — |
@@ -62,7 +63,7 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 | [`mycobot_280jn_sim/`](mycobot_280jn_sim/) | Gazebo sim | `gazebo_sim.launch.py`, `mycobot_table.sdf`, `controllers.yaml`, URDF |
 | [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `manipulation_state_machine*.py`, `THEORY.md` |
 | [`mycobot_280jn_moveit_config/`](mycobot_280jn_moveit_config/) | MoveIt 2 config | SRDF, OMPL, `gazebo_move_group.launch.py` |
-| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `planning_scene_objects`, `test_obstacle` |
+| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `cartesian_path`, `cube_approach`, `planning_scene_objects`, `test_obstacle` |
 
 ---
 
@@ -189,7 +190,42 @@ ros2 run mycobot_moveit_projects planning_scene_objects
 ros2 launch mycobot_moveit_projects named_targets.launch.py
 # or
 ros2 launch mycobot_moveit_projects pose_target.launch.py
+# or
+ros2 launch mycobot_moveit_projects cartesian_path.launch.py
+# or
+ros2 launch mycobot_moveit_projects cube_approach.launch.py
 ```
+
+### F — Sim Workbench GUI (Gazebo + MoveIt pick-and-place)
+
+Single Tkinter panel — no need to copy commands across terminals:
+
+```bash
+colcon build --symlink-install --packages-select mycobot_sim_projects mycobot_moveit_projects
+source install/setup.bash
+ros2 run mycobot_sim_projects sim_workbench_ui
+```
+
+1. **Start Gazebo + MoveIt (recommended)** — one combined process, synced sim clock. Or start **Gazebo** → **move_group** separately (optional **RViz**).
+2. **Open gripper** → **Go home** (wait ~6 s after home).
+3. Set place **X/Y/Z** and **Release Z** → **Run cube_approach**.
+
+Combined stack from the terminal:
+
+```bash
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+```
+
+Place override from the GUI spinboxes, or from the terminal:
+
+```bash
+ros2 launch mycobot_moveit_projects cube_approach.launch.py \
+  place_x:=0.12 place_y:=0.18 place_z:=0.140 place_descend_z:=0.055
+```
+
+Full sequence: pick → staged lift → place approach → place descend → release → retract → home.
+
+Requires X11/`DISPLAY` (same as `manipulation_state_machine_ui`). See [Docker guide](myCobot_280_JN_Docker_Simulation_Guide.md).
 
 ### E — RViz only (no Gazebo)
 
@@ -212,6 +248,7 @@ ros2 run mycobot_sim_projects pose_sequence
 | `ros2 run mycobot_sim_projects gripper_commander -- open\|close\|wide` | Gripper only |
 | `ros2 run mycobot_sim_projects manipulation_state_machine` | Generic FSM (CLI) |
 | `ros2 run mycobot_sim_projects manipulation_state_machine_ui` | Generic FSM (GUI) |
+| `ros2 run mycobot_sim_projects sim_workbench_ui` | **Sim Workbench** — Gazebo + MoveIt + cube_approach (GUI) |
 | `ros2 run mycobot_sim_projects keyboard_control` | Keyboard joint jog |
 | `ros2 run mycobot_sim_projects pose_sequence` | Smooth pose cycle |
 | `ros2 run mycobot_sim_projects joint_monitor` | Joint limit warnings |
@@ -232,6 +269,8 @@ ros2 run mycobot_sim_projects pose_sequence
 | `ros2 launch mycobot_280jn_moveit_config gazebo_moveit_rviz.launch.py` | RViz MotionPlanning |
 | `ros2 launch mycobot_moveit_projects named_targets.launch.py` | C++: `home` → `grasp_approach` → `home` |
 | `ros2 launch mycobot_moveit_projects pose_target.launch.py` | C++: approach → Z−3 cm → home |
+| `ros2 launch mycobot_moveit_projects cartesian_path.launch.py` | C++: Cartesian straight Z−3 cm at `grasp_approach` (needs Gazebo first) |
+| `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: MoveIt pick-and-place (`place_x/y/z:=` launch args) |
 | `ros2 run mycobot_moveit_projects planning_scene_objects` | Add table + cube to planning scene |
 | `ros2 run mycobot_moveit_projects test_obstacle --ros-args -p operation:=add` | Add blocking box at grasp pose |
 | `ros2 run mycobot_moveit_projects test_obstacle --ros-args -p operation:=remove` | Remove test obstacle |
@@ -422,6 +461,8 @@ If planning fails with new collision pairs, add matching `<disable_collisions>` 
 |------|---------------------|
 | `named_targets` | SRDF joint targets → OMPL → execute |
 | `pose_target` | FK read TCP → Z−3 cm → IK → OMPL → execute |
+| `cartesian_path` | FK read TCP → Cartesian straight Z−3 cm → return → home |
+| `cube_approach` | MoveIt pick-and-place: approach → pre-grasp → close → staged lift → place → release |
 | `planning_scene_objects` | Add table + cube boxes to MoveIt scene (world frame) |
 | `test_obstacle` | Add/remove 10 cm box blocking grasp path |
 
@@ -520,7 +561,7 @@ These rules prevent the most common repeat mistakes:
 2. **Gazebo first** — every sim node, FSM, and MoveIt client needs `gazebo_sim.launch.py` running with active controllers.
 3. **`pick_cube` ≠ FSM** — calibrated grasp is only in `gazebo_pose_commander.py`; the state machine is a generic teaching demo.
 4. **Rebuild + full Gazebo restart** after URDF, world, or controller YAML changes; verify cube size with `grep "Cube size"` in install.
-5. **MoveIt needs two terminals** — `gazebo_move_group.launch.py` then RViz or C++ demo; they are separate launches.
+5. **MoveIt needs Gazebo + move_group** — launch `gazebo_sim.launch.py` (bridges `/clock` to ROS) and `gazebo_move_group.launch.py` before any C++ MoveIt node or RViz.
 6. **SRDF collision pairs** — if MoveIt reports goal-in-collision or invalid path, read the logged link pair and add `<disable_collisions>` in the SRDF (mesh false positives are normal).
 7. **Host file permissions** — Docker-generated files may be `nobody`; `chown` before editing on the host.
 8. **X11 for GUI** — RViz and FSM UI need `xhost +local:docker` on the host and a running `DISPLAY`.
@@ -536,6 +577,8 @@ These rules prevent the most common repeat mistakes:
 | Cube still 40 mm in Gazebo | Stale world / symlink | Rebuild `mycobot_280jn_sim`, restart Gazebo, `grep "Cube size"` in install |
 | `EACCES` saving files on host | Docker created files as `nobody` | `sudo chown -R $USER:$USER ~/mycobot_ws/src/<package>` |
 | Pick hangs after gripper close | Old `mycobot_sim_projects` install | Rebuild; needs close timeout fix |
+| `No simulation clock received` (cartesian_path) | Gazebo not running, or `/clock` not bridged to ROS | Launch `gazebo_sim.launch.py` first; verify with `ros2 topic hz /clock` (must show data). If Gazebo is up but `/clock` has no publisher, rebuild `mycobot_280jn_sim` — the launch file includes a `ros_gz_bridge` clock bridge. |
+| `Detected jump back in time` / MoveIt execute abort | Gazebo restarted while `move_group` or stale `gzserver` still running | `pkill -f move_group; pkill -f gazebo; pkill -f gzserver; pkill -f gzclient` then `ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py` (or restart Gazebo + move_group together). Sim Workbench **Stop sim stack** does the same cleanup. |
 | MoveIt: goal in collision | SRDF mesh overlap | Add `disable_collisions` (see MoveIt section) |
 | MoveIt: invalid path along trajectory | Gripper link pairs | Same — check move_group log for pair names |
 | MoveIt: no planning scene objects | Scene not synced | Run `planning_scene_objects` |
@@ -550,6 +593,8 @@ These rules prevent the most common repeat mistakes:
 ```bash
 ros2 node list
 ros2 action list | grep -E 'arm|gripper'
+ros2 topic hz /clock
+ros2 topic echo /clock --once
 ros2 topic echo /joint_states --once
 ign model -m pick_cube --pose
 ```

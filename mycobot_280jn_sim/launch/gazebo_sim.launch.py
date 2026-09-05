@@ -100,6 +100,18 @@ def generate_launch_description():
         ],
     )
 
+    # Unidirectional GZ→ROS bridge. Required for use_sim_time nodes; must use
+    # [ notation (not @) so Gazebo remains the sole /clock source.
+    clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="clock_bridge",
+        output="screen",
+        arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+        ],
+    )
+
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -173,6 +185,7 @@ def generate_launch_description():
                 "GZ_SIM_RESOURCE_PATH", resource_paths
             ),
             gazebo,
+            clock_bridge,
             robot_state_publisher,
             spawn_robot,
             start_controllers_after_spawn,

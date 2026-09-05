@@ -8,11 +8,26 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(control_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_msgs REQUIRED)
 find_package(shape_msgs REQUIRED)
+find_package(moveit_core REQUIRED)
 
+#The find_package command is used to find the package and its dependencies.
+
+add_executable(cartesian_path src/cartesian_path.cpp)
+
+ament_target_dependencies(
+  cartesian_path
+  rclcpp
+  geometry_msgs
+  moveit_msgs
+  moveit_core
+  moveit_ros_planning_interface
+) 
 add_executable(named_targets
   src/named_targets.cpp
 )
@@ -62,12 +77,27 @@ ament_target_dependencies(
   shape_msgs
 )
 
+add_executable(cube_approach src/cube_approach.cpp)
+
+ament_target_dependencies(
+  cube_approach
+  rclcpp
+  rclcpp_action
+  control_msgs
+  geometry_msgs
+  moveit_msgs
+  moveit_core
+  moveit_ros_planning_interface
+)
+
 install(
   TARGETS
     named_targets
     pose_target
     planning_scene_objects
     test_obstacle 
+    cartesian_path
+    cube_approach
   DESTINATION lib/${PROJECT_NAME}
 )
 

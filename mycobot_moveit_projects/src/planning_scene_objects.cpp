@@ -76,7 +76,7 @@ int main(int argc, char **argv)
       planning_frame,
       0.20,
       0.0,
-      0.0075,
+      0.4125,
       0.025,
       0.025,
       0.025);
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
   RCLCPP_INFO(
       node->get_logger(),
-      "Cube: centre=(0.200, 0.000, 0.0075), "
+      "Cube: centre=(0.200, 0.000, 0.4125), "
       "size=(0.025, 0.025, 0.025)");
 
   rclcpp::shutdown();

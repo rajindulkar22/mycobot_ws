@@ -98,8 +98,10 @@ from action_msgs.msg import GoalStatus
 - Center Z: **0.4125 m** (table top 0.400 m + half cube 0.0125 m)
 - Position: **(0.20, 0.00, 0.4125)** in Gazebo world frame
 - Mass: **0.05 kg**
-- Friction: **mu = mu2 = 2.5** (increased from 1.0 to reduce slip during lift)
-- Contact stiffness: `kp=100000`, `kd=10`
+- Friction: **mu = mu2 = 2.35** (compromise: pick reliability vs sim RTF; was 2.5 tuned / 2.0 fast)
+- Contact stiffness: `kp=75000`, `kd=10` (was kp=100000 tuned / 40000 fast)
+- Physics step: **2 ms** (was 1 ms) for better Real Time Factor after grasp
+- Gripper finger **collision**: box primitives (not mesh) in `mycobot_280jn_sim.urdf.xacro`
 
 **In robot `joint1` frame** (robot spawned at z=0.405 m):
 - Cube center z ≈ **0.0075 m**
@@ -208,7 +210,8 @@ pick_cube completed (approach → descend → close → lift → retract).
 If pick still fails:
 - **Descend too high:** lower j2/j3/j4 slightly (watch table collision)
 - **Descend collision:** raise `grasp_descend` ~2 mm
-- **Slip on lift:** increase `GRIPPER_CLOSED` toward −0.65 or cube friction
+- **Slip on lift:** increase `GRIPPER_CLOSED` toward −0.65 or cube friction (μ up to 2.5)
+- **Gazebo RTF low after grasp:** restart Gazebo after box-collision URDF; reduce RViz/move_group load
 - **Close timeout every time:** normal with object contact; lift should still proceed
 - **Cube knocked over:** reset sim or reposition `pick_cube`
 

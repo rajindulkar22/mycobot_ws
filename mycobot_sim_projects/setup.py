@@ -37,6 +37,7 @@ setup(
         "gripper_commander = mycobot_sim_projects.gripper_commander:main",
         "manipulation_state_machine = mycobot_sim_projects.manipulation_state_machine:main",
         "manipulation_state_machine_ui = mycobot_sim_projects.manipulation_state_machine_ui:main",
+        "sim_workbench_ui = mycobot_sim_projects.sim_workbench_ui:main",
     ],
 },
 )

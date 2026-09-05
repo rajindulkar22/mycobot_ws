@@ -107,12 +107,13 @@ POSES = {
         -0.007679,
         -1.240580,
     ],
-    # Pre-close height — FK tcp z≈0.054 m (~34 mm above 25 mm cube top).
+    # Pre-close height — FK tcp z≈0.059 m (~39 mm above 25 mm cube top).
+    # Raised from 0.054 m to keep finger collision out of the table in Gazebo.
     "grasp_descend": [
         0.330216,
-        -0.700000,
-        -1.875000,
-        0.938000,
+        -0.688000,
+        -1.862000,
+        0.928000,
         -0.007679,
         -1.240580,
     ],
@@ -137,9 +138,9 @@ POSES = {
 
     "grasp": [
         0.330216,
-        -0.700000,
-        -1.875000,
-        0.938000,
+        -0.688000,
+        -1.862000,
+        0.928000,
         -0.007679,
         -1.240580,
     ],

@@ -430,15 +430,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="0.039 -0.0133 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left1.dae"/>
-
+        <box size="0.04 0.018 0.022"/>
       </geometry>
-
-        <origin xyz = "0.039 -0.0133 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -461,15 +456,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="0.005 -0.0195 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left2.dae"/>
-
+        <box size="0.04 0.018 0.022"/>
       </geometry>
-
-        <origin xyz = "0.005 -0.0195 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -492,15 +482,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="0.012 0.0025 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left3.dae"/>
-
+        <box size="0.03 0.012 0.018"/>
       </geometry>
-
-    <origin xyz = "0.012 0.0025 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -523,15 +508,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="-0.039 -0.0133 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right1.dae"/>
-
+        <box size="0.04 0.018 0.022"/>
       </geometry>
-
-        <origin xyz = "-0.039 -0.0133 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -554,15 +534,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="-0.005 -0.0195 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right2.dae"/>
-
+        <box size="0.04 0.018 0.022"/>
       </geometry>
-
-        <origin xyz = "-0.005 -0.0195 -0.012 " rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -585,15 +560,10 @@
     </visual>
 
     <collision>
-
+      <origin xyz="-0.012 0.0025 -0.012" rpy="0 0 0"/>
       <geometry>
-
-       <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right3.dae"/>
-
+        <box size="0.03 0.012 0.018"/>
       </geometry>
-
-    <origin xyz = "-0.012 0.0025 -0.012" rpy = " 0 0 0"/>
-
     </collision>
 
   </link>
@@ -880,6 +850,50 @@
     </joint>
   </ros2_control>
 
+  <!-- Match pick_cube friction so finger–cube contacts grip reliably. -->
+  <gazebo reference="gripper_base">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_left1">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_left2">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_left3">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_right1">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_right2">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+  <gazebo reference="gripper_right3">
+    <mu1>2.5</mu1>
+    <mu2>2.5</mu2>
+    <kp>75000</kp>
+    <kd>10</kd>
+  </gazebo>
+
   <!-- This Gazebo system creates controller_manager and reads the YAML. -->
   <gazebo>
     <plugin filename="gz_ros2_control-system"
@@ -888,6 +902,8 @@
       <robot_param_node>robot_state_publisher</robot_param_node>
       <parameters>$(find mycobot_280jn_sim)/config/controllers.yaml</parameters>
       <controller_manager_name>controller_manager</controller_manager_name>
+      <!-- Softer joint tracking reduces penetration through table/cube. -->
+      <position_proportional_gain>0.25</position_proportional_gain>
     </plugin>
   </gazebo>
 
