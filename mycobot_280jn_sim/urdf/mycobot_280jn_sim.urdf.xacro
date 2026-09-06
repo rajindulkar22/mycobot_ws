@@ -432,7 +432,7 @@
     <collision>
       <origin xyz="0.039 -0.0133 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.04 0.018 0.022"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left1.dae"/>
       </geometry>
     </collision>
 
@@ -458,7 +458,7 @@
     <collision>
       <origin xyz="0.005 -0.0195 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.04 0.018 0.022"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left2.dae"/>
       </geometry>
     </collision>
 
@@ -484,7 +484,7 @@
     <collision>
       <origin xyz="0.012 0.0025 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.03 0.012 0.018"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_left3.dae"/>
       </geometry>
     </collision>
 
@@ -510,7 +510,7 @@
     <collision>
       <origin xyz="-0.039 -0.0133 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.04 0.018 0.022"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right1.dae"/>
       </geometry>
     </collision>
 
@@ -536,7 +536,7 @@
     <collision>
       <origin xyz="-0.005 -0.0195 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.04 0.018 0.022"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right2.dae"/>
       </geometry>
     </collision>
 
@@ -562,7 +562,7 @@
     <collision>
       <origin xyz="-0.012 0.0025 -0.012" rpy="0 0 0"/>
       <geometry>
-        <box size="0.03 0.012 0.018"/>
+        <mesh filename="package://mycobot_description/urdf/adaptive_gripper/gripper_right3.dae"/>
       </geometry>
     </collision>
 
@@ -902,8 +902,7 @@
       <robot_param_node>robot_state_publisher</robot_param_node>
       <parameters>$(find mycobot_280jn_sim)/config/controllers.yaml</parameters>
       <controller_manager_name>controller_manager</controller_manager_name>
-      <!-- Softer joint tracking reduces penetration through table/cube. -->
-      <position_proportional_gain>0.25</position_proportional_gain>
+      <position_proportional_gain>1.0</position_proportional_gain>
     </plugin>
   </gazebo>
 
