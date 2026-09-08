@@ -39,8 +39,10 @@ setup(
         "manipulation_state_machine_ui = mycobot_sim_projects.manipulation_state_machine_ui:main",
         "sim_workbench_ui = mycobot_sim_projects.sim_workbench_ui:main",
         "red_cube_detector = mycobot_sim_projects.red_cube_detector:main",
-        "pixel_to_world = mycobot_sim_projects.pixel_to_world:main",
         "color_cube_detector = mycobot_sim_projects.color_cube_detector:main",
+        "yolo_cube_detector = mycobot_sim_projects.yolo_cube_detector:main",
+        "generate_yolo_dataset = mycobot_sim_projects.generate_yolo_dataset:main",
+        "pixel_to_world = mycobot_sim_projects.pixel_to_world:main",
     ],
 },
 )

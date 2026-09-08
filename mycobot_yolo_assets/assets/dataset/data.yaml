@@ -1,0 +1,8 @@
+path: .
+train: images/train
+val: images/val
+
+names:
+  0: red_cube
+  1: green_cube
+  2: blue_cube

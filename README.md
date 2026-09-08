@@ -26,14 +26,15 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 7. [State machine (theory + usage)](#state-machine-theory--usage)
 8. [Pick-cube (calibrated grasp)](#pick-cube-calibrated-grasp)
 9. [Vision-guided pick (multi-color cubes)](#vision-guided-pick-multi-color-cubes)
-10. [MoveIt 2](#moveit-2)
-11. [Controllers and action servers](#controllers-and-action-servers)
-12. [Theory document map](#theory-document-map)
-13. [Learning path](#learning-path)
-14. [Changelog](#changelog)
-15. [Documentation index](#documentation-index)
-16. [Remember for the future](#remember-for-the-future)
-17. [Troubleshooting](#troubleshooting)
+10. [YOLO vision-guided pick-and-place (step 17)](#yolo-vision-guided-pick-and-place-step-17)
+11. [MoveIt 2](#moveit-2)
+12. [Controllers and action servers](#controllers-and-action-servers)
+13. [Theory document map](#theory-document-map)
+14. [Learning path](#learning-path)
+15. [Changelog](#changelog)
+16. [Documentation index](#documentation-index)
+17. [Remember for the future](#remember-for-the-future)
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -42,8 +43,9 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 | Goal | Use this | Not this |
 |------|----------|----------|
 | Pick the 25 mm cube reliably (fixed pose) | `gazebo_pose_commander -- pick_cube` | `manipulation_state_machine` (generic poses) |
-| Pick by vision (red / green / blue cube) | `cube_approach.launch.py target_color:=...` | `pick_cube` (fixed FK poses only) |
-| Sort all three cubes by colour (autonomous) | `sort_cubes.launch.py` | Manual three launches with wrong `target_color` |
+| Pick by vision (red / green / blue cube) | `cube_approach.launch.py target_color:=...` (YOLO default) | `pick_cube` (fixed FK poses only) |
+| Sort all three cubes by colour (autonomous) | `sort_cubes.launch.py` (add `detector:=yolo` for YOLO) | Manual three launches with wrong `target_color` |
+| Train / run YOLO cube detector | See [YOLO handoff](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) | HSV-only `color_cube_detector` for production without training |
 | Learn state machines visually | `manipulation_state_machine_ui` | — |
 | Plan collision-aware paths in RViz | MoveIt `gazebo_move_group` + RViz | Raw joint publishing |
 | Cartesian straight-line descend demo | `mycobot_moveit_projects cartesian_path` | `pose_target` (uses OMPL IK, not Cartesian interpolation) |
@@ -64,7 +66,8 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 |---------|---------|-----------|
 | [`mycobot_ros2/`](mycobot_ros2/) | Upstream Elephant Robotics (`humble` branch) | Slider GUIs, descriptions |
 | [`mycobot_280jn_sim/`](mycobot_280jn_sim/) | Gazebo sim | `gazebo_sim.launch.py`, `mycobot_table.sdf`, `controllers.yaml`, URDF |
-| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `color_cube_detector.py`, `pixel_to_world.py`, `THEORY.md` |
+| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `color_cube_detector.py`, `yolo_cube_detector.py`, `generate_yolo_dataset.py`, `pixel_to_world.py`, `THEORY.md` |
+| [`mycobot_yolo_assets/`](mycobot_yolo_assets/) | YOLO dataset + weights (GitHub) | `assets/dataset/`, `assets/runs/cube_detector/weights/best.pt`, `assets/yolo11n.pt` |
 | [`mycobot_280jn_moveit_config/`](mycobot_280jn_moveit_config/) | MoveIt 2 config | SRDF, OMPL, `gazebo_move_group.launch.py` |
 | [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `cartesian_path`, `cube_approach`, `sort_cubes`, `planning_scene_objects`, `test_obstacle` |
 
@@ -122,7 +125,8 @@ flowchart TB
 
 ```bash
 cd /root/mycobot_ws
-colcon build --packages-select \
+colcon build --symlink-install --packages-select \
+  mycobot_yolo_assets \
   mycobot_280jn_sim \
   mycobot_sim_projects \
   mycobot_280jn_moveit_config \
@@ -201,7 +205,7 @@ ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=green
 
 ### E — Autonomous colour sort (red → green → blue)
 
-Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). Resets cubes in Gazebo between runs if needed.
+Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). Resets cubes in Gazebo between runs if needed. YOLO is the default detector in `cube_approach.launch.py`.
 
 ```bash
 # Terminal 1
@@ -296,9 +300,12 @@ ros2 run mycobot_sim_projects pose_sequence
 | `ros2 launch mycobot_moveit_projects named_targets.launch.py` | C++: `home` → `grasp_approach` → `home` |
 | `ros2 launch mycobot_moveit_projects pose_target.launch.py` | C++: approach → Z−3 cm → home |
 | `ros2 launch mycobot_moveit_projects cartesian_path.launch.py` | C++: Cartesian straight Z−3 cm at `grasp_approach` (needs Gazebo first) |
-| `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: vision pick-and-place (`target_color:=`, `place_x/y/z:=`) |
-| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py` | **Autonomous sort:** red → green → blue (vision + place row) |
-| `ros2 run mycobot_sim_projects color_cube_detector --ros-args -p target_color:=blue` | OpenCV HSV cube detection (step 15) |
+| `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: vision pick-and-place — **YOLO default** (`detector:=hsv` for HSV fallback) |
+| `ros2 launch mycobot_moveit_projects cube_approach.launch.py detector:=yolo target_color:=blue place_x:=0.10 place_y:=0.20` | YOLO pick with explicit place pose |
+| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py` | **Autonomous sort:** red → green → blue; add `detector:=yolo` (YOLO) or omit for default YOLO |
+| `ros2 run mycobot_sim_projects color_cube_detector --ros-args -p target_color:=blue` | OpenCV HSV cube detection (step 15 fallback) |
+| `ros2 run mycobot_sim_projects yolo_cube_detector --ros-args -p use_sim_time:=true -p target_color:=blue` | YOLO cube detection only (step 17) |
+| `ros2 run mycobot_sim_projects generate_yolo_dataset --ros-args -p samples:=300 -p use_sim_time:=true` | Auto-generate YOLO training images/labels |
 | `ros2 run mycobot_sim_projects pixel_to_world` | Pixel → MoveIt `world` (step 15) |
 | `ros2 run mycobot_moveit_projects planning_scene_objects` | Add table + cube to planning scene |
 | `ros2 run mycobot_moveit_projects test_obstacle --ros-args -p operation:=add` | Add blocking box at grasp pose |
@@ -464,9 +471,9 @@ Full joint values and tuning: [PICK_CUBE_HANDOFF.md](mycobot_sim_projects/PICK_C
 
 ## Vision-guided pick (multi-color cubes)
 
-**Learning path steps 14–15.** Curriculum topics: simulated RGB camera + intrinsics; OpenCV color segmentation + table-plane 3D. *Not yet implemented: depth image, point cloud, tf2 camera lookup.*
+**Learning path steps 14–17.** Curriculum topics: simulated RGB camera + intrinsics; OpenCV color segmentation + table-plane 3D (step 15); YOLO11n multi-class detection (step 17). *Not yet implemented: depth image, point cloud, tf2 camera lookup.*
 
-Theory: [THEORY.md §08–09](mycobot_sim_projects/THEORY.md#overhead-rgb-camera--bridge-step-14). MoveIt details: [mycobot_moveit_projects/README.md](mycobot_moveit_projects/README.md#cube_approach-pick-and-place).
+Theory: [THEORY.md §08–09](mycobot_sim_projects/THEORY.md#overhead-rgb-camera--bridge-step-14). MoveIt details: [mycobot_moveit_projects/README.md](mycobot_moveit_projects/README.md#cube_approach-pick-and-place). **Full YOLO handoff (training, metrics, diagnostics):** [YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md).
 
 ### Pipeline
 
@@ -474,7 +481,7 @@ Theory: [THEORY.md §08–09](mycobot_sim_projects/THEORY.md#overhead-rgb-camera
 flowchart LR
   cam["/overhead_camera/image"]
   info["/overhead_camera/camera_info"]
-  det["color_cube_detector"]
+  det["color_cube_detector / yolo_cube_detector"]
   pix["/selected_cube/pixel_center"]
   p2w["pixel_to_world"]
   world["/selected_cube/world_center"]
@@ -484,7 +491,7 @@ flowchart LR
   info --> p2w
 ```
 
-1. **HSV segmentation** — `color_cube_detector` finds the largest blob of `target_color` (red, green, or blue).
+1. **Detection** — `color_cube_detector` (HSV) or `yolo_cube_detector` (trained YOLO) finds the target cube and publishes its pixel centre.
 2. **Pinhole projection** — `pixel_to_world` uses `CameraInfo` intrinsics + fixed camera pose to map pixels → table plane in MoveIt `world`.
 3. **Frame conversion** — Gazebo world Z minus **0.405 m** = MoveIt `world` (robot base); cube centre Z = **0.0075 m**.
 4. **MoveIt pick** — `cube_approach` waits for vision (1.5 s stabilize), rotates `joint2_to_joint1` toward the cube, Cartesian descent, attach/detach in planning scene, place, release.
@@ -510,15 +517,29 @@ flowchart LR
 source /opt/ros/humble/setup.bash
 source /root/mycobot_ws/install/setup.bash
 
-# Terminal 1 — Gazebo + MoveIt (bridges overhead camera)
+# Terminal 1 — Gazebo + MoveIt (bridges overhead camera; synced sim clock)
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 
-# Terminal 2 — vision pick (launch starts color_cube_detector + pixel_to_world)
+# Terminal 2 — YOLO pick (default detector; HSV fallback shown below)
+source /root/yolo_env/bin/activate   # optional — node auto-reexecs if needed
 ros2 run mycobot_sim_projects gripper_commander -- open
 ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=blue
+
+# HSV fallback (classical OpenCV segmentation)
+ros2 launch mycobot_moveit_projects cube_approach.launch.py detector:=hsv target_color:=blue
 ```
 
 Expected `world_center` for blue: **y ≈ -0.10**. Check `cube_approach` log: `Vision cube position: x=..., y=..., z=...`.
+
+Per-colour place targets used in sorting (y = 0.20):
+
+| Colour | Command |
+|--------|---------|
+| red | `ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=red place_x:=0.10 place_y:=0.20` |
+| green | `ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=green place_x:=0.00 place_y:=0.20` |
+| blue | `ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=blue place_x:=-0.10 place_y:=0.20` |
+
+`detector:=yolo` is optional — YOLO is already the default in `cube_approach.launch.py`.
 
 ### Sort all three cubes
 
@@ -529,7 +550,7 @@ ros2 run mycobot_sim_projects gripper_commander -- open
 ros2 launch mycobot_moveit_projects sort_cubes.launch.py
 ```
 
-Uses [`sort_cubes.launch.py`](mycobot_moveit_projects/launch/sort_cubes.launch.py) — chains three `cube_approach` runs (red → green → blue). Success requires `Pick-and-place complete` in each pick log.
+Uses [`sort_cubes.launch.py`](mycobot_moveit_projects/launch/sort_cubes.launch.py) — chains three `cube_approach` runs (red → green → blue). Success requires `Pick-and-place complete` in each pick log. YOLO is the default detector; pass `detector:=hsv` to use OpenCV HSV instead.
 
 ### Manual vision (separate terminals)
 
@@ -560,6 +581,279 @@ ros2 pkg executables mycobot_sim_projects | grep color_cube_detector
 | red | ≈ +0.10 |
 | green | ≈ 0.00 |
 | blue | ≈ -0.10 |
+
+---
+
+## YOLO vision-guided pick-and-place (step 17)
+
+**Project 17** replaces HSV-only cube detection with a trained **YOLO11n** detector. The overhead Gazebo camera detects red, green, and blue cubes; ROS 2 converts the selected detection from pixels to the MoveIt `world` frame; and the existing `cube_approach` node approaches, grasps, lifts, places, and releases the requested cube.
+
+**Full handoff document** (install, dataset generator, training, validation metrics, diagnostics, troubleshooting): [YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md)
+
+### Validated stack
+
+| Component | Version / note |
+|-----------|----------------|
+| ROS 2 Humble | Ubuntu 22.04 in Docker (`mycobot-humble`) |
+| Gazebo | Fortress / Ignition Gazebo |
+| MoveIt 2 + `ros2_control` | `gazebo_moveit_stack.launch.py` |
+| PyTorch | `2.14.0+cpu` (CUDA not required) |
+| Ultralytics | `8.4.143` |
+| OpenCV | `4.11.0` |
+| Base model | YOLO11n (`yolo11n.pt`) |
+
+### Pipeline
+
+```text
+/overhead_camera/image
+        ↓
+yolo_cube_detector          (classes: red_cube, green_cube, blue_cube)
+        ↓ /selected_cube/pixel_center
+pixel_to_world              (unchanged — pinhole + fixed camera pose)
+        ↓ /selected_cube/world_center
+cube_approach (MoveIt)
+        ↓
+approach → descend → close → lift → place → open → home
+```
+
+YOLO classes:
+
+| ID | Class |
+| ---: | --- |
+| 0 | `red_cube` |
+| 1 | `green_cube` |
+| 2 | `blue_cube` |
+
+### Important paths (Docker: `/root/mycobot_ws/...`)
+
+All YOLO artifacts live in the **`mycobot_yolo_assets`** package under `src/` so they are version-controlled on GitHub (~26 MB total).
+
+| Path | Contents |
+|------|----------|
+| `src/mycobot_yolo_assets/assets/dataset/` | 310 images, labels, `data.yaml` |
+| `src/mycobot_yolo_assets/assets/runs/cube_detector/weights/best.pt` | Trained weights (default at runtime) |
+| `src/mycobot_yolo_assets/assets/yolo11n.pt` | Base model for training |
+| `/root/yolo_env/` | Python venv with PyTorch + Ultralytics (not in git) |
+
+After `colcon build --symlink-install`, nodes resolve paths via `mycobot_yolo_assets.paths` (installed share directory). With symlink-install, dataset regeneration and retraining update files under `src/` directly for committing.
+
+Quick path check:
+
+```bash
+python3 -c "from mycobot_yolo_assets.paths import default_model_path; print(default_model_path())"
+```
+
+Camera pose validated to avoid arm occlusion during grasp: **(0.30, -0.25, 1.30)** pitch 90°. Intrinsics: **640×480**, `fx=fy≈554.25`, `cx=320`, `cy=240`.
+
+### Install YOLO environment (one-time)
+
+```bash
+apt update
+apt install -y python3-pip python3-venv
+python3 -m venv --system-site-packages /root/yolo_env
+source /root/yolo_env/bin/activate
+python3 -m pip install "numpy<2"
+python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+python3 -m pip install ultralytics
+```
+
+Verify:
+
+```bash
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
+source /root/yolo_env/bin/activate
+python3 - <<'PY'
+import torch, ultralytics, cv2
+from cv_bridge import CvBridge
+print("PyTorch:", torch.__version__)
+print("CUDA:", torch.cuda.is_available())
+print("Ultralytics:", ultralytics.__version__)
+print("OpenCV:", cv2.__version__)
+print("cv_bridge: OK")
+PY
+```
+
+If pip reports a hash mismatch, purge cache and retry — **never** disable verification:
+
+```bash
+python3 -m pip cache purge
+python3 -m pip install --no-cache-dir --retries 10 --timeout 120 \
+  "numpy>=1.23.5,<2" ultralytics
+```
+
+### Build after YOLO integration
+
+```bash
+cd /root/mycobot_ws
+source /opt/ros/humble/setup.bash
+source /root/yolo_env/bin/activate
+colcon build --symlink-install --packages-select \
+  mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
+source install/setup.bash
+```
+
+### Step 1 — Generate dataset
+
+Gazebo must be running (`gazebo_sim.launch.py` or `gazebo_moveit_stack.launch.py`). The generator randomizes cube poses via Gazebo `set_pose`, waits **6 fresh camera frames** after each move (avoids stale labels), and writes YOLO labels using HSV **for annotation only** — runtime detection uses YOLO.
+
+Smoke test (10 samples):
+
+```bash
+ros2 run mycobot_sim_projects generate_yolo_dataset \
+  --ros-args -p use_sim_time:=true -p samples:=10
+```
+
+Full dataset (300 more → **310 total**):
+
+```bash
+ros2 run mycobot_sim_projects generate_yolo_dataset \
+  --ros-args -p use_sim_time:=true -p samples:=300
+```
+
+Default `output_directory` is `mycobot_yolo_assets/assets/dataset/` (via `mycobot_yolo_assets.paths.default_dataset_dir()`).
+
+**Validated dataset statistics:**
+
+| Metric | Value |
+|--------|------:|
+| Total images | 310 |
+| Train / val split | 243 / 67 (~80% / 20%) |
+| Label files | 310 |
+| Instances per class | 310 each (930 total) |
+| Invalid labels | 0 |
+
+Preview images are saved under `mycobot_yolo_assets/assets/dataset/previews/` for the first 10 and every 25th sample.
+
+### Step 2 — Train (stop Gazebo first to free CPU)
+
+```bash
+source /root/yolo_env/bin/activate
+ASSETS=$(python3 -c "from mycobot_yolo_assets.paths import yolo_assets_dir; print(yolo_assets_dir())")
+yolo detect train \
+  model=$ASSETS/yolo11n.pt \
+  data=$ASSETS/dataset/data.yaml \
+  epochs=50 imgsz=416 batch=8 device=cpu workers=2 patience=15 \
+  hsv_h=0.0 \
+  project=/root/mycobot_ws/src/mycobot_yolo_assets/assets/runs \
+  name=cube_detector plots=True
+```
+
+**Important:** `hsv_h=0.0` disables hue augmentation — changing hue would contradict colour-based class labels (red / green / blue).
+
+### Step 3 — Validate
+
+```bash
+yolo detect val \
+  model=$(python3 -c "from mycobot_yolo_assets.paths import default_model_path; print(default_model_path())") \
+  data=$(python3 -c "from mycobot_yolo_assets.paths import default_dataset_yaml; print(default_dataset_yaml())") \
+  imgsz=416 batch=8 device=cpu plots=True
+```
+
+**Validated metrics** (sim domain, CPU training, 50 epochs):
+
+| Class | Precision | Recall | mAP50 | mAP50–95 |
+| --- | ---: | ---: | ---: | ---: |
+| **All** | **0.999** | **1.000** | **0.995** | **0.935** |
+| Red | 0.999 | 1.000 | 0.995 | 0.942 |
+| Green | 0.999 | 1.000 | 0.995 | 0.940 |
+| Blue | 0.999 | 1.000 | 0.995 | 0.923 |
+
+- **mAP50** — average precision at IoU threshold 0.50 (primary detection metric).
+- **mAP50–95** — average precision averaged over IoU 0.50–0.95 (stricter localisation metric; **not** detection confidence).
+- **CPU inference** — ~8.6 ms/image at `imgsz=416`.
+
+**Live detection confidence** on a fresh Gazebo frame (after training):
+
+| Colour | Confidence |
+|--------|------------|
+| red | 0.970 |
+| green | 0.957 |
+| blue | 0.942 |
+
+Inspect annotated output:
+
+```bash
+ros2 run mycobot_sim_projects yolo_cube_detector \
+  --ros-args -p use_sim_time:=true -p target_color:=red
+ros2 topic echo /selected_cube/pixel_center --once
+ros2 run rqt_image_view rqt_image_view   # choose /selected_cube/annotated_image
+```
+
+### Step 4 — Runtime pick-and-place
+
+**Terminal 1** — combined sim stack (recommended; do **not** also launch `gazebo_sim.launch.py` separately):
+
+```bash
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+```
+
+**Terminal 2** — pick (YOLO is default):
+
+```bash
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
+source /root/yolo_env/bin/activate
+ros2 run mycobot_sim_projects gripper_commander -- open
+ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=blue
+```
+
+### `cube_approach.launch.py` arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `detector` | `yolo` | `yolo` or `hsv` |
+| `model_path` | from `mycobot_yolo_assets.paths.default_model_path()` | Trained weights in package |
+| `confidence_threshold` | `0.50` | Minimum YOLO confidence |
+| `image_size` | `416` | YOLO inference size (match training) |
+| `target_color` | `red` | `red`, `green`, or `blue` |
+| `place_x/y/z`, `place_descend_z` | see launch file | Place pose in MoveIt `world` |
+| `return_home` | `true` | Return to SRDF home after release |
+
+Show all args: `ros2 launch mycobot_moveit_projects cube_approach.launch.py --show-args`
+
+### YOLO diagnostic commands
+
+```bash
+# Camera and bridge
+ros2 topic info /overhead_camera/image
+ros2 topic echo /overhead_camera/camera_info --once
+ros2 node list | grep overhead_camera_bridge
+
+# Perception pipeline
+ros2 topic echo /selected_cube/pixel_center --once
+ros2 topic echo /selected_cube/world_center --once
+ros2 topic hz /selected_cube/annotated_image
+
+# Model files
+find $(ros2 pkg prefix mycobot_yolo_assets)/share/mycobot_yolo_assets/assets/runs \
+  -type f \( -name "best.pt" -o -name "last.pt" \) -exec ls -lh {} \;
+
+# MoveIt readiness
+ros2 topic echo /joint_states --once
+ros2 action list | grep move_group
+```
+
+### YOLO troubleshooting (summary)
+
+| Problem | Cause | Solution |
+| --- | --- | --- |
+| Camera image missing | Gazebo or bridge not running | Start `gazebo_moveit_stack.launch.py`; check `/overhead_camera/image` |
+| Cube hidden during grasp | Camera directly above robot | Use shifted pose `(0.30, -0.25, 1.30)` — already in world SDF |
+| Dataset labels missing | Stale frames after cube move | Generator waits 6 fresh callbacks — rebuild if using old script |
+| `torch` / `ultralytics` missing | Not in system Python | Use `/root/yolo_env`; node auto-reexecs into venv |
+| `cv_bridge` unavailable in venv | Isolated venv | Create venv with `--system-site-packages` |
+| YOLO cannot find weights | Package not built or stale install | `colcon build --symlink-install --packages-select mycobot_yolo_assets`; source install |
+| Annotated image OK but robot still | `move_group` or controllers down | Check `/selected_cube/world_center`, joint states, action servers |
+| Wrong cube selected | Wrong `target_color` | Use only `red`, `green`, or `blue` |
+
+Full table and completion checklist: [YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md).
+
+### Limitations and next steps
+
+High metrics apply to the **simulated domain**. Before a physical robot: collect real-camera images under varied lighting, add negatives (no cubes), randomize Gazebo lighting/backgrounds, calibrate the real camera with TF-based projection, require several consistent detections before motion, and package `best.pt` reproducibly.
 
 ---
 
@@ -638,6 +932,7 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | 07 | `manipulation_state_machine.py` | **FSM + UI** |
 | 08 | Overhead RGB camera + bridge | [THEORY §08](mycobot_sim_projects/THEORY.md#overhead-rgb-camera--bridge-step-14) |
 | 09 | `color_cube_detector.py`, `pixel_to_world.py` | [THEORY §09](mycobot_sim_projects/THEORY.md#opencv-cube-detection--pixelworld-step-15) |
+| 17 | `generate_yolo_dataset.py`, `yolo_cube_detector.py` | [YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) |
 | — | `pick_cube` world model | Grasp target geometry |
 | — | MoveIt config | Planning vs hand-tuned poses |
 | — | Docker restart | Re-source after container restart |
@@ -660,7 +955,8 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | 14 | Simulated RGB camera + intrinsics | Done | `gazebo_sim.launch.py` → `/overhead_camera/image`, `/overhead_camera/camera_info` |
 | 15 | OpenCV color localization + table 3D | Done | `color_cube_detector`, `pixel_to_world`, `cube_approach` |
 | 16 | Multi-cube autonomous sort | Done | `sort_cubes.launch.py` (vision pick × 3) |
-| 17+ | Depth camera, tf2, ML/YOLO | Not started | — |
+| 17 | YOLO11n detection + sim dataset + pick | Done | `mycobot_yolo_assets` package; mAP50 **0.995**; `generate_yolo_dataset`, `yolo_cube_detector` |
+| 18+ | Depth camera, tf2 | Not started | — |
 
 ---
 
@@ -677,6 +973,8 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 - **Vision** (steps 14–15): overhead camera at (0.30, -0.25, 1.30); red/green/blue cubes; `color_cube_detector`, `pixel_to_world`, `/selected_cube/*` topics; `cube_approach` vision integration; launch bundles vision + `target_color` arg
 - **Vision pick tuning** (`cube_approach.cpp`): joint1 bearing toward cube, vision stabilize, Cartesian approach (no OMPL overshoot), auto-open gripper, lenient release open
 - **Colour sort** (step 16): `sort_cubes.launch.py` — autonomous red → green → blue; place row at y=0.20; chain stops on first failed pick
+- **YOLO** (step 17): YOLO11n trained on 310 sim images (243 train / 67 val); validation mAP50 **0.995**, mAP50–95 **0.935**; assets in `mycobot_yolo_assets` package under `src/` for GitHub
+- **YOLO assets package** (`mycobot_yolo_assets`): dataset, `best.pt`, `yolo11n.pt`; path helper `mycobot_yolo_assets.paths`; symlink-install keeps regeneration committable
 - **Launch fix**: restored `cube_approach.launch.py` as single-pick launcher (vision + 2 s delay + shutdown on exit); sorting moved to `sort_cubes.launch.py`
 - **Docs**: this README, [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md), THEORY.md §08–09, PICK_CUBE_HANDOFF.md, Docker guide §12–14
 
@@ -691,6 +989,8 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | [myCobot_280_JN_Docker_Simulation_Guide.md](myCobot_280_JN_Docker_Simulation_Guide.md) | Docker, X11, host commands |
 | [mycobot_sim_projects/THEORY.md](mycobot_sim_projects/THEORY.md) | Full control theory per node |
 | [mycobot_sim_projects/PICK_CUBE_HANDOFF.md](mycobot_sim_projects/PICK_CUBE_HANDOFF.md) | Pick-cube tuning history + joint values |
+| [mycobot_yolo_assets/README.md](mycobot_yolo_assets/README.md) | YOLO assets package layout |
+| [mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) | **Project 17** — YOLO install, dataset, training, validation metrics, live detector, pick launch, diagnostics |
 | [mycobot_moveit_projects/README.md](mycobot_moveit_projects/README.md) | C++ MoveIt node details |
 
 ---
@@ -715,6 +1015,9 @@ These rules prevent the most common repeat mistakes:
 14. **Verify vision before pick** — `ros2 topic echo /selected_cube/world_center --once`; y should match expected colour (red +0.10, green 0, blue −0.10).
 15. **Use `sort_cubes.launch.py` for full sort** — do not replace `cube_approach.launch.py` with a sort orchestrator; single picks use `cube_approach`, three-colour demo uses `sort_cubes`.
 16. **Gripper between picks** — `cube_approach` auto-opens if closed; optional `gripper_commander -- open` before first `sort_cubes` run.
+17. **YOLO default detector** — `cube_approach.launch.py` uses YOLO by default; pass `detector:=hsv` for OpenCV fallback. Weights live in `mycobot_yolo_assets` (resolved at runtime via `default_model_path()`).
+18. **YOLO assets in git** — dataset + weights are in `src/mycobot_yolo_assets/assets/`; use `colcon build --symlink-install` so regeneration/retraining updates committable files.
+19. **YOLO training** — stop Gazebo before training; use `hsv_h=0.0`; activate `/root/yolo_env` for `ultralytics`. See [YOLO handoff](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md).
 
 ---
 
@@ -745,6 +1048,11 @@ These rules prevent the most common repeat mistakes:
 | Sort stops after red / false “All sorted” | Old launch or gripper stuck closed | Rebuild `mycobot_moveit_projects`; use current `sort_cubes.launch.py`; check `/tmp/sort_red_pick.log` for `Pick-and-place complete` |
 | `Gripper is not at its open preset` | Prior pick left gripper closed (old build) | Rebuild — current `cube_approach` auto-opens; or `gripper_commander -- open` |
 | Robot overshoots cube XY | OMPL arc with fixed wrist (old build) | Rebuild — current `cube_approach` uses joint1 bearing + Cartesian descent |
+| `ultralytics is not installed` (YOLO) | ROS Python lacks ultralytics | Ensure `/root/yolo_env` exists; node auto-reexecs into it; or `source /root/yolo_env/bin/activate` before launch |
+| YOLO pick misses cube | Low confidence or stale weights | Check `/selected_cube/annotated_image`; rebuild `mycobot_yolo_assets`; lower `confidence_threshold:=0.35` |
+| YOLO weights not found | `mycobot_yolo_assets` not built | `colcon build --symlink-install --packages-select mycobot_yolo_assets`; verify with `default_model_path()` |
+| Dataset labels empty / wrong | Stale camera frames after cube move | Regenerate with current `generate_yolo_dataset.py` (6-frame wait); see YOLO handoff doc |
+| Training hue augmentation breaks classes | Default YOLO aug changes colour | Always pass `hsv_h=0.0` when training colour-labelled cubes |
 | Live overlay “cube not detected” during pick | Arm occludes cube from overhead camera | Expected during motion; pick uses vision captured before arm moves |
 
 **Diagnostic commands:**
@@ -759,11 +1067,13 @@ ros2 topic echo /joint_states --once
 ign model -m pick_cube --pose
 pgrep -af "ign gazebo|clock_bridge|move_group"
 
-# Vision pipeline
+# YOLO / vision pipeline
 ros2 topic hz /overhead_camera/image
 ros2 topic hz /overhead_camera/camera_info
 ros2 topic hz /selected_cube/pixel_center
 ros2 topic echo /selected_cube/world_center --once
+python3 -c "from mycobot_yolo_assets.paths import default_model_path; print(default_model_path())"
+ros2 launch mycobot_moveit_projects cube_approach.launch.py --show-args
 ```
 
-Full debugging tables: [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md).
+Full YOLO debugging: [YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md). General debugging: [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md).
