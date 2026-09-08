@@ -18,6 +18,8 @@
   <depend>shape_msgs</depend>
   <depend>moveit_core</depend>
 
+  <exec_depend>mycobot_sim_projects</exec_depend>
+
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
 

@@ -26,6 +26,13 @@
       filename="gz-sim-scene-broadcaster-system"
       name="gz::sim::systems::SceneBroadcaster"/>
 
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+
     <light name="sun" type="directional">
       <cast_shadows>true</cast_shadows>
 
@@ -124,7 +131,7 @@
         Cube size:      0.025 m (25 mm — small target for adaptive gripper)
         Cube centre:    0.400 + 0.0125 = 0.4125 m
       -->
-      <pose>0.20 0.00 0.4125 0 0 0</pose>
+      <pose>0.15 0.10 0.4125 0 0 0</pose>
 
       <link name="cube_link">
 
@@ -180,6 +187,173 @@
           </material>
         </visual>
 
+      </link>
+    </model>
+
+    <model name="green_cube">
+      <static>false</static>
+
+      <!--
+        Table surface: 0.400 m
+        Cube size:      0.025 m (25 mm — small target for adaptive gripper)
+        Cube centre:    0.400 + 0.0125 = 0.4125 m
+      -->
+      <pose>0.20 0.00 0.4125 0 0 0</pose>
+
+      <link name="cube_link">
+
+        <inertial>
+          <mass>0.05</mass>
+
+          <inertia>
+            <ixx>0.00000521</ixx>
+            <iyy>0.00000521</iyy>
+            <izz>0.00000521</izz>
+
+            <ixy>0.0</ixy>
+            <ixz>0.0</ixz>
+            <iyz>0.0</iyz>
+          </inertia>
+        </inertial>
+
+        <collision name="cube_collision">
+          <geometry>
+            <box>
+              <size>0.025 0.025 0.025</size>
+            </box>
+          </geometry>
+
+          <surface>
+            <friction>
+              <ode>
+                <mu>2.5</mu>
+                <mu2>2.5</mu2>
+              </ode>
+            </friction>
+
+            <contact>
+              <ode>
+                <kp>75000.0</kp>
+                <kd>10.0</kd>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+
+        <visual name="cube_visual">
+          <geometry>
+            <box>
+              <size>0.025 0.025 0.025</size>
+            </box>
+          </geometry>
+
+          <material>
+            <ambient>0.05 0.8 0.05 1</ambient>
+            <diffuse>0.08 0.9 0.08 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+
+      </link>
+    </model>
+
+    <model name="blue_cube">
+      <static>false</static>
+
+      <!--
+        Table surface: 0.400 m
+        Cube size:      0.025 m (25 mm — small target for adaptive gripper)
+        Cube centre:    0.400 + 0.0125 = 0.4125 m
+      -->
+      <pose>0.15 -0.10 0.4125 0 0 0</pose>
+
+      <link name="cube_link">
+
+        <inertial>
+          <mass>0.05</mass>
+
+          <inertia>
+            <ixx>0.00000521</ixx>
+            <iyy>0.00000521</iyy>
+            <izz>0.00000521</izz>
+
+            <ixy>0.0</ixy>
+            <ixz>0.0</ixz>
+            <iyz>0.0</iyz>
+          </inertia>
+        </inertial>
+
+        <collision name="cube_collision">
+          <geometry>
+            <box>
+              <size>0.025 0.025 0.025</size>
+            </box>
+          </geometry>
+
+          <surface>
+            <friction>
+              <ode>
+                <mu>2.5</mu>
+                <mu2>2.5</mu2>
+              </ode>
+            </friction>
+
+            <contact>
+              <ode>
+                <kp>75000.0</kp>
+                <kd>10.0</kd>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+
+        <visual name="cube_visual">
+          <geometry>
+            <box>
+              <size>0.025 0.025 0.025</size>
+            </box>
+          </geometry>
+
+          <material>
+            <ambient>0.05 0.05 0.8 1</ambient>
+            <diffuse>0.08 0.08 0.9 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+
+      </link>
+    </model>
+
+    <!-- Fixed overhead RGB camera -->
+    <model name="overhead_camera">
+      <static>true</static>
+
+      <!-- Position above the table; pitch rotates the camera downward -->
+      <pose>0.30 -0.25 1.30 0 1.5708 0</pose>
+
+      <link name="camera_link">
+        <sensor name="rgb_camera" type="camera">
+          <always_on>true</always_on>
+          <update_rate>10</update_rate>
+          <visualize>true</visualize>
+
+          <topic>/overhead_camera/image</topic>
+
+          <camera>
+            <horizontal_fov>1.0472</horizontal_fov>
+
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+
+            <clip>
+              <near>0.05</near>
+              <far>5.0</far>
+            </clip>
+          </camera>
+        </sensor>
       </link>
     </model>
 

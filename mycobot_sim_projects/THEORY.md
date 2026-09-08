@@ -11,7 +11,7 @@ section here in the same commit.
 
 ## Roadmap
 
-7 of 17 planned projects complete. Each row links to its section below.
+9 of 17 planned projects complete. Each row links to its section below.
 Numbering here tracks completion order within this file, not any external
 project-list numbering.
 
@@ -24,6 +24,8 @@ project-list numbering.
 | 05 | Gazebo trajectory-controller pose commander | [gazebo_pose_commander.py](#gazebo_pose_commanderpy--named-pose-trajectory-commander) | ✓ Done |
 | 06 | Gazebo gripper-action commander | [gripper_commander.py](#gripper_commanderpy--named-position-gripper-commander) | ✓ Done |
 | 07 | Pick-and-place manipulation state machine | [manipulation_state_machine.py](#manipulation_state_machinepy--pick-and-place-state-machine) (+ [UI layer](#ui-layer-manipulation_state_machine_uipy)) | ✓ Done |
+| 08 | Overhead RGB camera + bridge | [mycobot_table.sdf](#overhead-rgb-camera--bridge-step-14) + `gazebo_sim.launch.py` | ✓ Done |
+| 09 | OpenCV cube detection + pixel→world | [color_cube_detector.py](#opencv-cube-detection--pixelworld-step-15), [pixel_to_world.py](#opencv-cube-detection--pixelworld-step-15) | ✓ Done |
 
 Since project 05 was marked done, `gazebo_pose_commander.py` grew a second,
 tuned capability — a full top-down `pick_cube` grasp sequence for the
@@ -1309,6 +1311,187 @@ With those active, the CLI nodes documented above work directly:
 ros2 run mycobot_sim_projects gazebo_pose_commander ready
 ros2 run mycobot_sim_projects gripper_commander open
 ros2 run mycobot_sim_projects gripper_commander close
+```
+
+---
+
+## Overhead RGB camera + bridge (step 14)
+
+**Curriculum:** Simulated RGB camera — images, depth, intrinsics.  
+**Status:** RGB + intrinsics **done**. Depth image / point cloud **not implemented**.
+
+### Purpose
+
+The overhead camera lets vision nodes see cube positions on the table. Gazebo renders the image; `ros_gz_bridge` exposes it to ROS 2 for OpenCV and MoveIt pick.
+
+### Hardware model (SDF)
+
+File: `mycobot_280jn_sim/worlds/mycobot_table.sdf`, model `overhead_camera`.
+
+| Property | Value |
+|----------|-------|
+| Pose (Gazebo world) | (0.30, -0.25, 1.30), pitch 90° (looks straight down) |
+| Resolution | 640 × 480 |
+| Format | `R8G8B8` |
+| FOV | 1.0472 rad (~60°) |
+| Update rate | 10 Hz |
+
+Three cubes on the table: `pick_cube` (red), `green_cube`, `blue_cube` — see [README frame table](../README.md#world-layout).
+
+### ROS bridge
+
+File: `mycobot_280jn_sim/launch/gazebo_sim.launch.py`, node `overhead_camera_bridge`.
+
+| Gazebo topic | ROS topic | Message |
+|--------------|-----------|---------|
+| `/overhead_camera/image` | `/overhead_camera/image` | `sensor_msgs/Image` |
+| (camera sensor) | `/overhead_camera/camera_info` | `sensor_msgs/CameraInfo` |
+
+Bridge type: `ros_gz_bridge` `parameter_bridge`.
+
+### Camera intrinsics
+
+`pixel_to_world.py` caches the pinhole matrix from `CameraInfo.k`:
+
+```
+K = [ fx   0  cx ]
+    [  0  fy  cy ]
+    [  0   0   1 ]
+```
+
+- `fx = k[0]`, `fy = k[4]`, `cx = k[2]`, `cy = k[5]`
+
+Without at least one `camera_info` message, pixel→world conversion cannot run.
+
+### Frame note
+
+MoveIt planning uses frame **`world`** (robot base / `joint1`). Gazebo world origin is **0.405 m higher** in Z. Camera height in MoveIt defaults: **0.895 m** (= 1.30 − 0.405).
+
+### Diagnostic commands
+
+```bash
+ros2 topic hz /overhead_camera/image
+ros2 topic hz /overhead_camera/camera_info
+ros2 topic echo /overhead_camera/camera_info --once
+```
+
+### Not implemented (future step 16+)
+
+- Depth image topic
+- Point cloud (`PointCloud2`)
+- RGB-D fusion
+- `tf2` static transform from camera to robot (current code uses fixed numeric camera pose)
+
+---
+
+## OpenCV cube detection + pixel→world (step 15)
+
+**Curriculum:** OpenCV object localization — segmentation, 3D reconstruction, TF.  
+**Status:** HSV segmentation + table-plane 3D **done**. Full TF tree and depth-based reconstruction **not implemented**.
+
+### Pipeline overview
+
+```
+/overhead_camera/image
+    → color_cube_detector (HSV mask, largest contour)
+    → /selected_cube/pixel_center
+    → pixel_to_world (pinhole + fixed camera pose)
+    → /selected_cube/world_center  (frame_id: world)
+    → cube_approach (MoveIt pick)
+```
+
+Legacy `red_cube_detector` publishes to `/red_cube/pixel_center` — superseded by `color_cube_detector` for multi-color picks.
+
+### color_cube_detector.py
+
+**Node:** `color_cube_detector`  
+**Parameters:** `target_color` (red/green/blue), `image_topic`, `minimum_area`
+
+#### Segmentation theory
+
+1. **BGR → HSV** — hue separated from brightness; stable under shadows.
+2. **`cv2.inRange`** — binary mask per colour. Red uses **two** hue bands (wrap at 0/180).
+3. **Morphology** — OPEN removes noise; CLOSE fills holes inside the blob.
+4. **Largest contour** — assumes target cube is the biggest blob of that colour in frame.
+5. **Bounding box centre** — published as `PointStamped` (`point.x` = column u, `point.y` = row v).
+
+#### HSV ranges (defaults)
+
+| Colour | Hue (approx) | Notes |
+|--------|--------------|-------|
+| red | 0–10 and 170–179 | Two bands |
+| green | 35–85 | Single band |
+| blue | 95–135 | Single band |
+
+#### Topics
+
+| Direction | Topic |
+|-----------|-------|
+| Subscribe | `/overhead_camera/image` |
+| Publish | `/selected_cube/pixel_center`, `/selected_cube/annotated_image` |
+
+### pixel_to_world.py
+
+**Node:** `pixel_to_world`
+
+#### 3D reconstruction (table-plane model)
+
+Not stereo or depth — assumes cube sits on a **known flat table** at height `object_z = 0.0075` m (MoveIt world).
+
+Vertical depth from camera to table:
+
+```
+depth = camera_z - object_z   # ≈ 0.8875 m
+```
+
+Pinhole inverse projection (downward-facing camera):
+
+```
+world_x = camera_x + (cy - v) * depth / fy
+world_y = camera_y - (u - cx) * depth / fx
+world_z = object_z
+```
+
+Camera pose defaults must match SDF: `camera_x=0.30`, `camera_y=-0.25`, `camera_z=0.895`.
+
+#### TF simplification
+
+A full pipeline would use `tf2` to look up `camera_link` → `world`. This implementation uses **declared parameters** instead — valid while the camera is static and calibrated once. Document this when extending to a mobile camera or eye-in-hand setup.
+
+#### Topics
+
+| Direction | Topic |
+|-----------|-------|
+| Subscribe | `/selected_cube/pixel_center`, `/overhead_camera/camera_info` |
+| Publish | `/selected_cube/world_center` (`frame_id: world`) |
+
+### Integration with cube_approach
+
+`cube_approach.cpp` waits up to 10 s for the first `/selected_cube/world_center`, then plans:
+
+- Approach XY from vision; orientation from SRDF `grasp_approach`
+- Cartesian hover and pre-grasp at cube-relative Z offsets
+- Attach/detach `pick_cube` in MoveIt planning scene (physics grasp still in Gazebo)
+
+**Important:** `target_color` in launch must match the cube you want. Running two detectors on the same topics causes wrong picks.
+
+### Run commands
+
+```bash
+# Bundled (recommended)
+ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=blue
+
+# Manual
+ros2 run mycobot_sim_projects color_cube_detector \
+  --ros-args -p target_color:=blue -p use_sim_time:=true
+ros2 run mycobot_sim_projects pixel_to_world --ros-args -p use_sim_time:=true
+ros2 topic echo /selected_cube/world_center --once
+```
+
+### Expected output (blue cube)
+
+```
+Pixel (226, 334) -> world (0.15, -0.10, 0.0075) m   # approximate
 ```
 
 ---

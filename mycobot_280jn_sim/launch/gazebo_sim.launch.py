@@ -176,6 +176,19 @@ def generate_launch_description():
         )
     )
 
+    camera_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="overhead_camera_bridge",
+        output="screen",
+        arguments=[
+            "/overhead_camera/image"
+            "@sensor_msgs/msg/Image[gz.msgs.Image",
+            "/overhead_camera/camera_info"
+            "@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo",
+        ],
+    )
+
     return LaunchDescription(
         [
             SetEnvironmentVariable(
@@ -189,5 +202,6 @@ def generate_launch_description():
             robot_state_publisher,
             spawn_robot,
             start_controllers_after_spawn,
+            camera_bridge,
         ]
     )

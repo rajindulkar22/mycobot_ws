@@ -19,6 +19,8 @@
 | Table collision on descend | Old `descend_080`/`descend_090` poses too deep | Removed deep descend poses; staged approach → hover → descend |
 | Grip works but no lift | Jumped `grasp_descend` → approach in one move (arc hits table) | **Two-stage lift:** `grasp_lift` (hover) → `grasp_retract` (approach) |
 | Process hangs after close | `close_gripper()` blocked forever waiting for gripper action `reached_goal` on object contact | **3 s timeout** on close with `proceed_on_timeout=True` |
+| Triple `/clock` publishers (~1500 Hz) | Multiple `gazebo_sim.launch.py` without cleanup | Kill orphans; one stack only — see [WORKSPACE_DEBUGGING_AND_HISTORY.md](../WORKSPACE_DEBUGGING_AND_HISTORY.md) |
+| MoveIt carry ignores cube vs table | No attach in planning scene (pre-2026 fix) | `cube_approach` now attach/detach — see MoveIt section below |
 
 ---
 
@@ -101,7 +103,9 @@ from action_msgs.msg import GoalStatus
 - Friction: **mu = mu2 = 2.35** (compromise: pick reliability vs sim RTF; was 2.5 tuned / 2.0 fast)
 - Contact stiffness: `kp=75000`, `kd=10` (was kp=100000 tuned / 40000 fast)
 - Physics step: **2 ms** (was 1 ms) for better Real Time Factor after grasp
-- Gripper finger **collision**: box primitives (not mesh) in `mycobot_280jn_sim.urdf.xacro`
+- Gripper finger **collision** (current): **mesh** (same `.dae` as visual) for accurate cube contact; `position_proportional_gain: 1.0` in `gz_ros2_control` plugin
+- **Tradeoff:** mesh = no finger penetration, lower RTF during grasp; box primitives = faster sim, fingers may phase through cube
+- `gripper_base` collision: box `0.08×0.06×0.04` (visual mesh unchanged)
 
 **In robot `joint1` frame** (robot spawned at z=0.405 m):
 - Cube center z ≈ **0.0075 m**
@@ -211,9 +215,25 @@ If pick still fails:
 - **Descend too high:** lower j2/j3/j4 slightly (watch table collision)
 - **Descend collision:** raise `grasp_descend` ~2 mm
 - **Slip on lift:** increase `GRIPPER_CLOSED` toward −0.65 or cube friction (μ up to 2.5)
-- **Gazebo RTF low after grasp:** restart Gazebo after box-collision URDF; reduce RViz/move_group load
+- **Gazebo RTF low after grasp:** mesh finger contact is heavier; restart Gazebo after URDF rebuild; reduce RViz/move_group load; verify single `/clock` publisher
 - **Close timeout every time:** normal with object contact; lift should still proceed
 - **Cube knocked over:** reset sim or reposition `pick_cube`
+
+---
+
+## Related: MoveIt `cube_approach`
+
+Full MoveIt pick-and-place (approach → grasp → **attach cube in planning scene** → carry → place → detach → open) lives in `mycobot_moveit_projects`:
+
+```bash
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+# wait ~15 s, gripper open, arm home, then:
+ros2 launch mycobot_moveit_projects cube_approach.launch.py
+```
+
+**Frame note:** Gazebo cube center Z = **0.4125 m** (world). MoveIt planning frame `world` (= robot base) uses cube center Z = **0.0075 m**. Do not mix these in collision objects.
+
+Details: [mycobot_moveit_projects/README.md](../mycobot_moveit_projects/README.md). Full debugging history: [WORKSPACE_DEBUGGING_AND_HISTORY.md](../WORKSPACE_DEBUGGING_AND_HISTORY.md).
 
 ---
 

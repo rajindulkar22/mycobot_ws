@@ -88,6 +88,7 @@ ament_target_dependencies(
   moveit_msgs
   moveit_core
   moveit_ros_planning_interface
+  shape_msgs
 )
 
 install(

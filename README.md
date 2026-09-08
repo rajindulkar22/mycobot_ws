@@ -25,14 +25,15 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 6. [All commands reference](#all-commands-reference)
 7. [State machine (theory + usage)](#state-machine-theory--usage)
 8. [Pick-cube (calibrated grasp)](#pick-cube-calibrated-grasp)
-9. [MoveIt 2](#moveit-2)
-10. [Controllers and action servers](#controllers-and-action-servers)
-11. [Theory document map](#theory-document-map)
-12. [Learning path](#learning-path)
-13. [Changelog](#changelog)
-14. [Documentation index](#documentation-index)
-15. [Remember for the future](#remember-for-the-future)
-16. [Troubleshooting](#troubleshooting)
+9. [Vision-guided pick (multi-color cubes)](#vision-guided-pick-multi-color-cubes)
+10. [MoveIt 2](#moveit-2)
+11. [Controllers and action servers](#controllers-and-action-servers)
+12. [Theory document map](#theory-document-map)
+13. [Learning path](#learning-path)
+14. [Changelog](#changelog)
+15. [Documentation index](#documentation-index)
+16. [Remember for the future](#remember-for-the-future)
+17. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -40,7 +41,9 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 
 | Goal | Use this | Not this |
 |------|----------|----------|
-| Pick the 25 mm cube reliably | `gazebo_pose_commander -- pick_cube` | `manipulation_state_machine` (generic poses) |
+| Pick the 25 mm cube reliably (fixed pose) | `gazebo_pose_commander -- pick_cube` | `manipulation_state_machine` (generic poses) |
+| Pick by vision (red / green / blue cube) | `cube_approach.launch.py target_color:=...` | `pick_cube` (fixed FK poses only) |
+| Sort all three cubes by colour (autonomous) | `sort_cubes.launch.py` | Manual three launches with wrong `target_color` |
 | Learn state machines visually | `manipulation_state_machine_ui` | — |
 | Plan collision-aware paths in RViz | MoveIt `gazebo_move_group` + RViz | Raw joint publishing |
 | Cartesian straight-line descend demo | `mycobot_moveit_projects cartesian_path` | `pose_target` (uses OMPL IK, not Cartesian interpolation) |
@@ -61,9 +64,9 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 |---------|---------|-----------|
 | [`mycobot_ros2/`](mycobot_ros2/) | Upstream Elephant Robotics (`humble` branch) | Slider GUIs, descriptions |
 | [`mycobot_280jn_sim/`](mycobot_280jn_sim/) | Gazebo sim | `gazebo_sim.launch.py`, `mycobot_table.sdf`, `controllers.yaml`, URDF |
-| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `manipulation_state_machine*.py`, `THEORY.md` |
+| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `color_cube_detector.py`, `pixel_to_world.py`, `THEORY.md` |
 | [`mycobot_280jn_moveit_config/`](mycobot_280jn_moveit_config/) | MoveIt 2 config | SRDF, OMPL, `gazebo_move_group.launch.py` |
-| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `cartesian_path`, `cube_approach`, `planning_scene_objects`, `test_obstacle` |
+| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `cartesian_path`, `cube_approach`, `sort_cubes`, `planning_scene_objects`, `test_obstacle` |
 
 ---
 
@@ -192,9 +195,32 @@ ros2 launch mycobot_moveit_projects named_targets.launch.py
 ros2 launch mycobot_moveit_projects pose_target.launch.py
 # or
 ros2 launch mycobot_moveit_projects cartesian_path.launch.py
-# or
-ros2 launch mycobot_moveit_projects cube_approach.launch.py
+# or — single vision-guided pick (red / green / blue)
+ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=green
 ```
+
+### E — Autonomous colour sort (red → green → blue)
+
+Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). Resets cubes in Gazebo between runs if needed.
+
+```bash
+# Terminal 1
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+
+# Terminal 2
+ros2 run mycobot_sim_projects gripper_commander -- open
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py
+```
+
+Each colour is picked with vision and placed in a row at **y = 0.20**:
+
+| Colour | Place X (MoveIt `world`) |
+|--------|--------------------------|
+| red | 0.10 |
+| green | 0.00 |
+| blue | −0.10 |
+
+The sequence stops on the first failed pick (checks for `Pick-and-place complete` in the log).
 
 ### F — Sim Workbench GUI (Gazebo + MoveIt pick-and-place)
 
@@ -227,7 +253,7 @@ Full sequence: pick → staged lift → place approach → place descend → rel
 
 Requires X11/`DISPLAY` (same as `manipulation_state_machine_ui`). See [Docker guide](myCobot_280_JN_Docker_Simulation_Guide.md).
 
-### E — RViz only (no Gazebo)
+### G — RViz only (no Gazebo)
 
 ```bash
 ros2 launch mycobot_sim_projects display_rviz.launch.py
@@ -270,7 +296,10 @@ ros2 run mycobot_sim_projects pose_sequence
 | `ros2 launch mycobot_moveit_projects named_targets.launch.py` | C++: `home` → `grasp_approach` → `home` |
 | `ros2 launch mycobot_moveit_projects pose_target.launch.py` | C++: approach → Z−3 cm → home |
 | `ros2 launch mycobot_moveit_projects cartesian_path.launch.py` | C++: Cartesian straight Z−3 cm at `grasp_approach` (needs Gazebo first) |
-| `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: MoveIt pick-and-place (`place_x/y/z:=` launch args) |
+| `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: vision pick-and-place (`target_color:=`, `place_x/y/z:=`) |
+| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py` | **Autonomous sort:** red → green → blue (vision + place row) |
+| `ros2 run mycobot_sim_projects color_cube_detector --ros-args -p target_color:=blue` | OpenCV HSV cube detection (step 15) |
+| `ros2 run mycobot_sim_projects pixel_to_world` | Pixel → MoveIt `world` (step 15) |
 | `ros2 run mycobot_moveit_projects planning_scene_objects` | Add table + cube to planning scene |
 | `ros2 run mycobot_moveit_projects test_obstacle --ros-args -p operation:=add` | Add blocking box at grasp pose |
 | `ros2 run mycobot_moveit_projects test_obstacle --ros-args -p operation:=remove` | Remove test obstacle |
@@ -403,7 +432,7 @@ ros2 run mycobot_sim_projects manipulation_state_machine
 ## Pick-cube (calibrated grasp)
 
 **File:** [`gazebo_pose_commander.py`](mycobot_sim_projects/mycobot_sim_projects/gazebo_pose_commander.py)  
-**Target:** 25 mm cube at world `(0.20, 0.00, 0.4125)` — [`mycobot_table.sdf`](mycobot_280jn_sim/worlds/mycobot_table.sdf)
+**Target:** 25 mm red `pick_cube` at Gazebo `(0.15, 0.10, 0.4125)` — [`mycobot_table.sdf`](mycobot_280jn_sim/worlds/mycobot_table.sdf). This is a **fixed-pose** Python pick (no camera). For vision-guided multi-color pick, see [Vision-guided pick](#vision-guided-pick-multi-color-cubes).
 
 **Sequence:**
 
@@ -430,6 +459,107 @@ open → grasp_approach → grasp_hover → grasp_descend
 | Hang after close | Gripper timeout |
 
 Full joint values and tuning: [PICK_CUBE_HANDOFF.md](mycobot_sim_projects/PICK_CUBE_HANDOFF.md).
+
+---
+
+## Vision-guided pick (multi-color cubes)
+
+**Learning path steps 14–15.** Curriculum topics: simulated RGB camera + intrinsics; OpenCV color segmentation + table-plane 3D. *Not yet implemented: depth image, point cloud, tf2 camera lookup.*
+
+Theory: [THEORY.md §08–09](mycobot_sim_projects/THEORY.md#overhead-rgb-camera--bridge-step-14). MoveIt details: [mycobot_moveit_projects/README.md](mycobot_moveit_projects/README.md#cube_approach-pick-and-place).
+
+### Pipeline
+
+```mermaid
+flowchart LR
+  cam["/overhead_camera/image"]
+  info["/overhead_camera/camera_info"]
+  det["color_cube_detector"]
+  pix["/selected_cube/pixel_center"]
+  p2w["pixel_to_world"]
+  world["/selected_cube/world_center"]
+  pick["cube_approach"]
+
+  cam --> det --> pix --> p2w --> world --> pick
+  info --> p2w
+```
+
+1. **HSV segmentation** — `color_cube_detector` finds the largest blob of `target_color` (red, green, or blue).
+2. **Pinhole projection** — `pixel_to_world` uses `CameraInfo` intrinsics + fixed camera pose to map pixels → table plane in MoveIt `world`.
+3. **Frame conversion** — Gazebo world Z minus **0.405 m** = MoveIt `world` (robot base); cube centre Z = **0.0075 m**.
+4. **MoveIt pick** — `cube_approach` waits for vision (1.5 s stabilize), rotates `joint2_to_joint1` toward the cube, Cartesian descent, attach/detach in planning scene, place, release.
+
+**`cube_approach` behaviour (verified):**
+
+- Auto-opens gripper at start if a prior pick left it closed (needed for `sort_cubes` chain).
+- Lenient gripper open on release — slow sim open no longer aborts retract/home.
+- Live detector overlay may show “not detected” while the arm is over the cube; pick uses vision locked **before** motion.
+
+### World layout
+
+| Model | Gazebo pose (x, y, z) | MoveIt `world` (x, y, z) |
+|-------|------------------------|---------------------------|
+| `pick_cube` (red) | (0.15, 0.10, 0.4125) | (0.15, 0.10, 0.0075) |
+| `green_cube` | (0.20, 0.00, 0.4125) | (0.20, 0.00, 0.0075) |
+| `blue_cube` | (0.15, -0.10, 0.4125) | (0.15, -0.10, 0.0075) |
+| `overhead_camera` | (0.30, -0.25, 1.30) pitch 90° | (0.30, -0.25, 0.895) |
+
+### One-launch pick (recommended)
+
+```bash
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
+
+# Terminal 1 — Gazebo + MoveIt (bridges overhead camera)
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+
+# Terminal 2 — vision pick (launch starts color_cube_detector + pixel_to_world)
+ros2 run mycobot_sim_projects gripper_commander -- open
+ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=blue
+```
+
+Expected `world_center` for blue: **y ≈ -0.10**. Check `cube_approach` log: `Vision cube position: x=..., y=..., z=...`.
+
+### Sort all three cubes
+
+```bash
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+# second terminal:
+ros2 run mycobot_sim_projects gripper_commander -- open
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py
+```
+
+Uses [`sort_cubes.launch.py`](mycobot_moveit_projects/launch/sort_cubes.launch.py) — chains three `cube_approach` runs (red → green → blue). Success requires `Pick-and-place complete` in each pick log.
+
+### Manual vision (separate terminals)
+
+```bash
+ros2 run mycobot_sim_projects color_cube_detector \
+  --ros-args -p target_color:=blue -p use_sim_time:=true
+ros2 run mycobot_sim_projects pixel_to_world --ros-args -p use_sim_time:=true
+ros2 topic echo /selected_cube/world_center --once
+ros2 launch mycobot_moveit_projects cube_approach.launch.py
+```
+
+**Do not** run two `color_cube_detector` nodes with different `target_color` values — they share `/selected_cube/pixel_center`.
+
+### Pre-flight checks
+
+```bash
+ros2 topic hz /overhead_camera/image
+ros2 topic hz /overhead_camera/camera_info
+ros2 topic hz /selected_cube/pixel_center
+ros2 topic echo /selected_cube/world_center --once
+ros2 pkg executables mycobot_sim_projects | grep color_cube_detector
+```
+
+### Expected `world_center` by color
+
+| Color | Expected y (MoveIt world) |
+|-------|---------------------------|
+| red | ≈ +0.10 |
+| green | ≈ 0.00 |
+| blue | ≈ -0.10 |
 
 ---
 
@@ -462,7 +592,8 @@ If planning fails with new collision pairs, add matching `<disable_collisions>` 
 | `named_targets` | SRDF joint targets → OMPL → execute |
 | `pose_target` | FK read TCP → Z−3 cm → IK → OMPL → execute |
 | `cartesian_path` | FK read TCP → Cartesian straight Z−3 cm → return → home |
-| `cube_approach` | MoveIt pick-and-place: approach → pre-grasp → close → staged lift → place → release |
+| `cube_approach` | Vision-guided pick-and-place via `/selected_cube/world_center` → attach → place → release |
+| `sort_cubes` | Launch orchestrator: three vision picks in sequence (red → green → blue) |
 | `planning_scene_objects` | Add table + cube boxes to MoveIt scene (world frame) |
 | `test_obstacle` | Add/remove 10 cm box blocking grasp path |
 
@@ -505,6 +636,8 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | 05 | `gazebo_pose_commander.py` | Trajectory commander + **pick_cube** |
 | 06 | `gripper_commander.py` | Gripper actions |
 | 07 | `manipulation_state_machine.py` | **FSM + UI** |
+| 08 | Overhead RGB camera + bridge | [THEORY §08](mycobot_sim_projects/THEORY.md#overhead-rgb-camera--bridge-step-14) |
+| 09 | `color_cube_detector.py`, `pixel_to_world.py` | [THEORY §09](mycobot_sim_projects/THEORY.md#opencv-cube-detection--pixelworld-step-15) |
 | — | `pick_cube` world model | Grasp target geometry |
 | — | MoveIt config | Planning vs hand-tuned poses |
 | — | Docker restart | Re-source after container restart |
@@ -524,7 +657,10 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | 7 | Fixed-position pick | Done | `pick_cube` |
 | 8 | MoveIt planning | In progress | MoveIt RViz + C++ nodes |
 | 9 | Planning scene objects | Started | `planning_scene_objects`, `test_obstacle` |
-| 10+ | Cameras, ML, RL | Not started | — |
+| 14 | Simulated RGB camera + intrinsics | Done | `gazebo_sim.launch.py` → `/overhead_camera/image`, `/overhead_camera/camera_info` |
+| 15 | OpenCV color localization + table 3D | Done | `color_cube_detector`, `pixel_to_world`, `cube_approach` |
+| 16 | Multi-cube autonomous sort | Done | `sort_cubes.launch.py` (vision pick × 3) |
+| 17+ | Depth camera, tf2, ML/YOLO | Not started | — |
 
 ---
 
@@ -535,9 +671,14 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 - **World install**: CMake real-copy fix for Docker/host symlink breakage
 - **MoveIt** (`mycobot_280jn_moveit_config`): Setup Assistant + Gazebo-linked launches
 - **SRDF**: self-collision exemptions for gripper/arm mesh overlaps
-- **C++ MoveIt** (`mycobot_moveit_projects`): named targets, pose target, planning scene, test obstacle
+- **C++ MoveIt** (`mycobot_moveit_projects`): named targets, pose target, `cube_approach` attach/detach, planning scene
+- **URDF gripper**: `gripper_base` box collision; finger mesh collisions; `position_proportional_gain: 1.0`
 - **FSM UI** (`manipulation_state_machine_ui.py`): Tkinter control panel
-- **Docs**: this README, THEORY.md, PICK_CUBE_HANDOFF.md, Docker guide §12–14
+- **Vision** (steps 14–15): overhead camera at (0.30, -0.25, 1.30); red/green/blue cubes; `color_cube_detector`, `pixel_to_world`, `/selected_cube/*` topics; `cube_approach` vision integration; launch bundles vision + `target_color` arg
+- **Vision pick tuning** (`cube_approach.cpp`): joint1 bearing toward cube, vision stabilize, Cartesian approach (no OMPL overshoot), auto-open gripper, lenient release open
+- **Colour sort** (step 16): `sort_cubes.launch.py` — autonomous red → green → blue; place row at y=0.20; chain stops on first failed pick
+- **Launch fix**: restored `cube_approach.launch.py` as single-pick launcher (vision + 2 s delay + shutdown on exit); sorting moved to `sort_cubes.launch.py`
+- **Docs**: this README, [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md), THEORY.md §08–09, PICK_CUBE_HANDOFF.md, Docker guide §12–14
 
 ---
 
@@ -546,6 +687,7 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | Document | Contents |
 |----------|----------|
 | [README.md](README.md) | This file — workspace hub |
+| [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md) | **Debugging encyclopedia**, FSM vs pick_cube vs cube_approach, SOP, frame reference |
 | [myCobot_280_JN_Docker_Simulation_Guide.md](myCobot_280_JN_Docker_Simulation_Guide.md) | Docker, X11, host commands |
 | [mycobot_sim_projects/THEORY.md](mycobot_sim_projects/THEORY.md) | Full control theory per node |
 | [mycobot_sim_projects/PICK_CUBE_HANDOFF.md](mycobot_sim_projects/PICK_CUBE_HANDOFF.md) | Pick-cube tuning history + joint values |
@@ -567,6 +709,12 @@ These rules prevent the most common repeat mistakes:
 8. **X11 for GUI** — RViz and FSM UI need `xhost +local:docker` on the host and a running `DISPLAY`.
 9. **Gripper stall is OK** — closing on an object triggers `stalled`; both `pick_cube` and the FSM treat that as success.
 10. **Stop is between states** — FSM Stop waits for the current arm/gripper action to finish before exiting.
+11. **One Gazebo = one `clock_bridge`** — never run multiple `gazebo_sim.launch.py` sessions; verify `ros2 topic info /clock -v` shows **Publisher count: 1** (~500 Hz) before MoveIt.
+12. **Single stack for MoveIt pick** — use `gazebo_moveit_stack.launch.py`; do not also launch `gazebo_sim.launch.py` in another terminal.
+13. **Vision `target_color` must match the cube** — use `target_color:=blue` for `blue_cube`; never run two `color_cube_detector` nodes on the same topics.
+14. **Verify vision before pick** — `ros2 topic echo /selected_cube/world_center --once`; y should match expected colour (red +0.10, green 0, blue −0.10).
+15. **Use `sort_cubes.launch.py` for full sort** — do not replace `cube_approach.launch.py` with a sort orchestrator; single picks use `cube_approach`, three-colour demo uses `sort_cubes`.
+16. **Gripper between picks** — `cube_approach` auto-opens if closed; optional `gripper_commander -- open` before first `sort_cubes` run.
 
 ---
 
@@ -581,20 +729,41 @@ These rules prevent the most common repeat mistakes:
 | `Detected jump back in time` / MoveIt execute abort | Gazebo restarted while `move_group` or stale `gzserver` still running | `pkill -f move_group; pkill -f gazebo; pkill -f gzserver; pkill -f gzclient` then `ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py` (or restart Gazebo + move_group together). Sim Workbench **Stop sim stack** does the same cleanup. |
 | MoveIt: goal in collision | SRDF mesh overlap | Add `disable_collisions` (see MoveIt section) |
 | MoveIt: invalid path along trajectory | Gripper link pairs | Same — check move_group log for pair names |
-| MoveIt: no planning scene objects | Scene not synced | Run `planning_scene_objects` |
+| MoveIt: no planning scene objects | Scene not synced | `cube_approach` adds `work_table` automatically; optional: `planning_scene_objects` for manual setup |
+| `/clock` Publisher count: 3, hz ~1500 | Multiple Gazebo stacks | Full cleanup; launch **one** stack — see [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md) |
+| Gazebo RTF very low (~4%) during grasp only | Mesh finger contact + physics load | Normal under load; RTF recovers idle; not same as broken clock |
+| `/clock` hz ~500, Publisher count 1 | Healthy sim time | Proceed with MoveIt / pick |
 | FSM / pick: controller unavailable | Gazebo not running or controllers not spawned | Launch `gazebo_sim.launch.py` first |
 | RViz / UI won't open | No DISPLAY | `xhost +local:docker` on host |
 | Stale packages after container restart | Old sourced environment | Re-source both setup.bash files |
 | `pick_cube` misses cube | Cube knocked over | Reset sim; check cube with `ign model -m pick_cube --pose` |
 | FSM Stop seems slow | Stop checked between states only | Current arm/gripper action must finish first |
+| `No cube detection received within 10 seconds` | Vision not running | Use `cube_approach.launch.py` (includes vision) or start `color_cube_detector` + `pixel_to_world`; check `/overhead_camera/image` |
+| `No executable found` (color_cube_detector) | Stale build / missing entry point | `colcon build --packages-select mycobot_sim_projects`; source install |
+| Robot picks wrong cube | Wrong `target_color` or duplicate detectors | `target_color:=blue` for blue; one detector only; check `Vision cube position` in `cube_approach` log |
+| `pixel_to_world` silent | No camera_info yet | `ros2 topic hz /overhead_camera/camera_info`; wait for Gazebo camera bridge |
+| Sort stops after red / false “All sorted” | Old launch or gripper stuck closed | Rebuild `mycobot_moveit_projects`; use current `sort_cubes.launch.py`; check `/tmp/sort_red_pick.log` for `Pick-and-place complete` |
+| `Gripper is not at its open preset` | Prior pick left gripper closed (old build) | Rebuild — current `cube_approach` auto-opens; or `gripper_commander -- open` |
+| Robot overshoots cube XY | OMPL arc with fixed wrist (old build) | Rebuild — current `cube_approach` uses joint1 bearing + Cartesian descent |
+| Live overlay “cube not detected” during pick | Arm occludes cube from overhead camera | Expected during motion; pick uses vision captured before arm moves |
 
 **Diagnostic commands:**
 
 ```bash
 ros2 node list
 ros2 action list | grep -E 'arm|gripper'
-ros2 topic hz /clock
+ros2 topic info /clock -v    # Publisher count must be 1
+ros2 topic hz /clock         # ~500 Hz = healthy; ~1500 = triple publisher
 ros2 topic echo /clock --once
 ros2 topic echo /joint_states --once
 ign model -m pick_cube --pose
+pgrep -af "ign gazebo|clock_bridge|move_group"
+
+# Vision pipeline
+ros2 topic hz /overhead_camera/image
+ros2 topic hz /overhead_camera/camera_info
+ros2 topic hz /selected_cube/pixel_center
+ros2 topic echo /selected_cube/world_center --once
 ```
+
+Full debugging tables: [WORKSPACE_DEBUGGING_AND_HISTORY.md](WORKSPACE_DEBUGGING_AND_HISTORY.md).

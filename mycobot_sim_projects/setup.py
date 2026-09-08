@@ -38,6 +38,9 @@ setup(
         "manipulation_state_machine = mycobot_sim_projects.manipulation_state_machine:main",
         "manipulation_state_machine_ui = mycobot_sim_projects.manipulation_state_machine_ui:main",
         "sim_workbench_ui = mycobot_sim_projects.sim_workbench_ui:main",
+        "red_cube_detector = mycobot_sim_projects.red_cube_detector:main",
+        "pixel_to_world = mycobot_sim_projects.pixel_to_world:main",
+        "color_cube_detector = mycobot_sim_projects.color_cube_detector:main",
     ],
 },
 )
