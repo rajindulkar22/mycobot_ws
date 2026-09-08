@@ -184,6 +184,18 @@ Expected response: `data: true`.
 
 The generator randomizes the three Gazebo cube poses, obtains a fresh camera image, uses HSV only for automatic annotation, and writes normalized YOLO labels. Runtime detection uses YOLO, not HSV.
 
+### Demo — YOLO dataset generation (screencast)
+
+Screencast (2026-09-08): Gazebo running, cubes randomized via `set_pose`, and
+`generate_yolo_dataset` saving images and labels into
+`mycobot_yolo_assets/assets/dataset/`.
+
+<video src="../mycobot_yolo_assets/media/yolo_dataset_generation.webm" controls width="720">
+  <a href="../mycobot_yolo_assets/media/yolo_dataset_generation.webm">Download dataset generation demo (WebM)</a>
+</video>
+
+Direct link: [yolo_dataset_generation.webm](../mycobot_yolo_assets/media/yolo_dataset_generation.webm)
+
 Save the following as `generate_yolo_dataset.py`:
 
 ```python

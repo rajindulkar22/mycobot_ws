@@ -697,6 +697,8 @@ source install/setup.bash
 
 Gazebo must be running (`gazebo_sim.launch.py` or `gazebo_moveit_stack.launch.py`). The generator randomizes cube poses via Gazebo `set_pose`, waits **6 fresh camera frames** after each move (avoids stale labels), and writes YOLO labels using HSV **for annotation only** — runtime detection uses YOLO.
 
+**Demo video:** [YOLO dataset generation screencast](mycobot_yolo_assets/media/yolo_dataset_generation.webm) — see [YOLO handoff § Demo](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md#demo--yolo-dataset-generation-screencast).
+
 Smoke test (10 samples):
 
 ```bash

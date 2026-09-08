@@ -8,6 +8,8 @@ Version-controlled YOLO assets for Project 17 (cube detection):
 | `dataset/` | Sim training images, labels, `data.yaml` |
 | `runs/cube_detector/` | Trained weights (`best.pt`, `last.pt`) and metrics |
 
+**Demo:** [Dataset generation screencast](media/yolo_dataset_generation.webm)
+
 After build:
 
 ```bash
