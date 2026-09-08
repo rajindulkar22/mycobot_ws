@@ -181,8 +181,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             "detector",
-            default_value="hsv",
-            description="Cube detector passed to each pick: hsv or yolo.",
+            default_value="yolo",
+            description="Cube detector passed to each pick: yolo or hsv.",
         ),
         OpaqueFunction(function=_launch_setup),
     ])

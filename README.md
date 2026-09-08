@@ -26,15 +26,16 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 7. [State machine (theory + usage)](#state-machine-theory--usage)
 8. [Pick-cube (calibrated grasp)](#pick-cube-calibrated-grasp)
 9. [Vision-guided pick (multi-color cubes)](#vision-guided-pick-multi-color-cubes)
-10. [YOLO vision-guided pick-and-place (step 17)](#yolo-vision-guided-pick-and-place-step-17)
-11. [MoveIt 2](#moveit-2)
-12. [Controllers and action servers](#controllers-and-action-servers)
-13. [Theory document map](#theory-document-map)
-14. [Learning path](#learning-path)
-15. [Changelog](#changelog)
-16. [Documentation index](#documentation-index)
-17. [Remember for the future](#remember-for-the-future)
-18. [Troubleshooting](#troubleshooting)
+10. [Autonomous colour sort (`sort_cubes.launch.py`)](#autonomous-colour-sort-sort_cubeslaunchpy)
+11. [YOLO vision-guided pick-and-place (step 17)](#yolo-vision-guided-pick-and-place-step-17)
+12. [MoveIt 2](#moveit-2)
+13. [Controllers and action servers](#controllers-and-action-servers)
+14. [Theory document map](#theory-document-map)
+15. [Learning path](#learning-path)
+16. [Changelog](#changelog)
+17. [Documentation index](#documentation-index)
+18. [Remember for the future](#remember-for-the-future)
+19. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -44,7 +45,7 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 |------|----------|----------|
 | Pick the 25 mm cube reliably (fixed pose) | `gazebo_pose_commander -- pick_cube` | `manipulation_state_machine` (generic poses) |
 | Pick by vision (red / green / blue cube) | `cube_approach.launch.py target_color:=...` (YOLO default) | `pick_cube` (fixed FK poses only) |
-| Sort all three cubes by colour (autonomous) | `sort_cubes.launch.py` (add `detector:=yolo` for YOLO) | Manual three launches with wrong `target_color` |
+| Sort all three cubes by colour (autonomous) | `sort_cubes.launch.py` (YOLO default) | Manual three `cube_approach` launches |
 | Train / run YOLO cube detector | See [YOLO handoff](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) | HSV-only `color_cube_detector` for production without training |
 | Learn state machines visually | `manipulation_state_machine_ui` | — |
 | Plan collision-aware paths in RViz | MoveIt `gazebo_move_group` + RViz | Raw joint publishing |
@@ -205,26 +206,33 @@ ros2 launch mycobot_moveit_projects cube_approach.launch.py target_color:=green
 
 ### E — Autonomous colour sort (red → green → blue)
 
-Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). Resets cubes in Gazebo between runs if needed. YOLO is the default detector in `cube_approach.launch.py`.
+Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). See [Autonomous colour sort](#autonomous-colour-sort-sort_cubeslaunchpy) for the full orchestrator explanation.
 
 ```bash
-# Terminal 1
+# Terminal 1 — sim + MoveIt
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 
-# Terminal 2
+# Terminal 2 — sort with YOLO (default)
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
 ros2 run mycobot_sim_projects gripper_commander -- open
 ros2 launch mycobot_moveit_projects sort_cubes.launch.py
+
+# HSV fallback
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py detector:=hsv
 ```
 
 Each colour is picked with vision and placed in a row at **y = 0.20**:
 
-| Colour | Place X (MoveIt `world`) |
-|--------|--------------------------|
-| red | 0.10 |
-| green | 0.00 |
-| blue | −0.10 |
+| Colour | Place X (MoveIt `world`) | Per-pick log |
+|--------|--------------------------|--------------|
+| red | 0.10 | `/tmp/sort_red_pick.log` |
+| green | 0.00 | `/tmp/sort_green_pick.log` |
+| blue | −0.10 | `/tmp/sort_blue_pick.log` |
 
-The sequence stops on the first failed pick (checks for `Pick-and-place complete` in the log).
+The sequence stops on the first failed pick (each log must contain `Pick-and-place complete`).
 
 ### F — Sim Workbench GUI (Gazebo + MoveIt pick-and-place)
 
@@ -302,7 +310,8 @@ ros2 run mycobot_sim_projects pose_sequence
 | `ros2 launch mycobot_moveit_projects cartesian_path.launch.py` | C++: Cartesian straight Z−3 cm at `grasp_approach` (needs Gazebo first) |
 | `ros2 launch mycobot_moveit_projects cube_approach.launch.py` | C++: vision pick-and-place — **YOLO default** (`detector:=hsv` for HSV fallback) |
 | `ros2 launch mycobot_moveit_projects cube_approach.launch.py detector:=yolo target_color:=blue place_x:=0.10 place_y:=0.20` | YOLO pick with explicit place pose |
-| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py` | **Autonomous sort:** red → green → blue; add `detector:=yolo` (YOLO) or omit for default YOLO |
+| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py` | **Autonomous sort:** red → green → blue (YOLO default); `detector:=hsv` for HSV |
+| `ros2 launch mycobot_moveit_projects sort_cubes.launch.py detector:=hsv` | Same sort chain using OpenCV HSV instead of YOLO |
 | `ros2 run mycobot_sim_projects color_cube_detector --ros-args -p target_color:=blue` | OpenCV HSV cube detection (step 15 fallback) |
 | `ros2 run mycobot_sim_projects yolo_cube_detector --ros-args -p use_sim_time:=true -p target_color:=blue` | YOLO cube detection only (step 17) |
 | `ros2 run mycobot_sim_projects generate_yolo_dataset --ros-args -p samples:=300 -p use_sim_time:=true` | Auto-generate YOLO training images/labels |
@@ -541,7 +550,9 @@ Per-colour place targets used in sorting (y = 0.20):
 
 `detector:=yolo` is optional — YOLO is already the default in `cube_approach.launch.py`.
 
-### Sort all three cubes
+For all three colours in one command, use [`sort_cubes.launch.py`](#autonomous-colour-sort-sort_cubeslaunchpy) instead of three manual launches.
+
+### Sort all three cubes (quick reference)
 
 ```bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
@@ -550,7 +561,7 @@ ros2 run mycobot_sim_projects gripper_commander -- open
 ros2 launch mycobot_moveit_projects sort_cubes.launch.py
 ```
 
-Uses [`sort_cubes.launch.py`](mycobot_moveit_projects/launch/sort_cubes.launch.py) — chains three `cube_approach` runs (red → green → blue). Success requires `Pick-and-place complete` in each pick log. YOLO is the default detector; pass `detector:=hsv` to use OpenCV HSV instead.
+Full orchestrator explanation: [Autonomous colour sort](#autonomous-colour-sort-sort_cubeslaunchpy).
 
 ### Manual vision (separate terminals)
 
@@ -581,6 +592,144 @@ ros2 pkg executables mycobot_sim_projects | grep color_cube_detector
 | red | ≈ +0.10 |
 | green | ≈ 0.00 |
 | blue | ≈ -0.10 |
+
+---
+
+## Autonomous colour sort (`sort_cubes.launch.py`)
+
+**Learning path step 16.** [`sort_cubes.launch.py`](mycobot_moveit_projects/launch/sort_cubes.launch.py) is a **launch-level orchestrator** — not the generic arm FSM in `manipulation_state_machine.py`. It chains three full vision pick-and-place runs (red → green → blue) by spawning `cube_approach.launch.py` once per colour and waiting for each child launch to exit before starting the next.
+
+### Prerequisites
+
+```bash
+source /opt/ros/humble/setup.bash
+source /root/mycobot_ws/install/setup.bash
+colcon build --symlink-install --packages-select \
+  mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
+source install/setup.bash
+```
+
+Gazebo + MoveIt must already be running:
+
+```bash
+ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
+```
+
+### Run commands
+
+**YOLO sort (default):**
+
+```bash
+ros2 run mycobot_sim_projects gripper_commander -- open
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py
+```
+
+**HSV sort (OpenCV fallback):**
+
+```bash
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py detector:=hsv
+```
+
+**Show launch arguments:**
+
+```bash
+ros2 launch mycobot_moveit_projects sort_cubes.launch.py --show-args
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `detector` | `yolo` | Passed to each child `cube_approach.launch.py`: `yolo` or `hsv` |
+
+### What each pick does
+
+Each colour run launches [`cube_approach.launch.py`](mycobot_moveit_projects/launch/cube_approach.launch.py) with fixed place row parameters:
+
+| Colour | `target_color` | `place_x` | `place_y` | Shared params |
+|--------|----------------|-----------|-----------|---------------|
+| red | `red` | 0.10 | 0.20 | `place_z:=0.140`, `place_descend_z:=0.055`, `return_home:=true` |
+| green | `green` | 0.00 | 0.20 | same |
+| blue | `blue` | −0.10 | 0.20 | same |
+
+Each child launch starts **detector + `pixel_to_world` + `cube_approach`**, performs one full pick-and-place, then **shuts down** so the next colour gets a clean process tree.
+
+### Orchestrator state machine
+
+The sort launch file implements a **sequential state machine** using `RegisterEventHandler(OnProcessExit(...))`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> RedPick: sort_cubes starts
+    RedPick --> GreenPick: red exit 0\nPick-and-place complete in log
+    RedPick --> Failed: red exit != 0
+    GreenPick --> BluePick: green exit 0
+    GreenPick --> Failed: green exit != 0
+    BluePick --> Complete: blue exit 0
+    BluePick --> Failed: blue exit != 0
+    Complete --> [*]: LogInfo All cubes sorted
+    Failed --> [*]: Shutdown on first failure
+```
+
+**States and transitions:**
+
+| State | Action | On success | On failure |
+|-------|--------|------------|------------|
+| **RedPick** | `ExecuteProcess` → `cube_approach.launch.py target_color:=red place_x:=0.10 ...` | Start **GreenPick** | `Shutdown` — sequence stops |
+| **GreenPick** | `cube_approach.launch.py target_color:=green place_x:=0.00 ...` | Start **BluePick** | `Shutdown` |
+| **BluePick** | `cube_approach.launch.py target_color:=blue place_x:=-0.10 ...` | Log *All cubes sorted successfully* → `Shutdown` | `Shutdown` |
+| **Failed** | — | — | Log which colour failed; no further picks |
+
+**Success detection:** Humble `ros2 launch` returns exit code **0 even when `cube_approach` failed** (shutdown event). Each pick is wrapped in bash that:
+
+1. Pipes output to `/tmp/sort_{color}_pick.log`
+2. Exits **0** only if the log contains `Pick-and-place complete`
+3. Exits **1** otherwise — the orchestrator treats that as failure
+
+### Inner pick sequence (each `cube_approach` run)
+
+Inside each child launch, `cube_approach` (MoveIt C++) runs:
+
+```text
+open gripper (if needed)
+  → wait for vision (1.5 s stabilize)
+  → rotate joint1 toward cube
+  → Cartesian approach + descend
+  → close gripper → lift
+  → place approach → place descend
+  → open gripper → retract → home
+  → log "Pick-and-place complete"
+```
+
+Vision pipeline per pick: **detector** (YOLO or HSV) → `/selected_cube/pixel_center` → `pixel_to_world` → `/selected_cube/world_center` → `cube_approach`.
+
+### Verify and debug
+
+```bash
+# After a sort run — check each pick log
+grep -E 'Pick-and-place complete|failed|error' /tmp/sort_red_pick.log
+grep -E 'Pick-and-place complete|failed|error' /tmp/sort_green_pick.log
+grep -E 'Pick-and-place complete|failed|error' /tmp/sort_blue_pick.log
+
+# Live vision before manual single pick
+ros2 topic echo /selected_cube/world_center --once
+```
+
+**Expected console messages:**
+
+1. `Starting autonomous colour sorting (yolo detector): red -> green -> blue.`
+2. `Red cube complete. Starting green cube.`
+3. `Green cube complete. Starting blue cube.`
+4. `All cubes sorted successfully: red, green and blue.`
+
+If a pick fails you see e.g. `Red cube operation failed (exit 1). Stopping the sorting sequence.`
+
+### Sort vs single pick vs FSM
+
+| | `sort_cubes.launch.py` | `cube_approach.launch.py` | `manipulation_state_machine` |
+|--|------------------------|---------------------------|------------------------------|
+| Purpose | Chain 3 colour picks | One vision pick-and-place | Generic FSM demo |
+| Detector | Passes `detector:=yolo\|hsv` | YOLO default | No vision |
+| States | Launch orchestrator (3 picks) | One MoveIt pick sequence | HOME → OPEN → … → COMPLETE |
+| Use for cube sort | **Yes** | One colour only | **No** (wrong poses) |
 
 ---
 
