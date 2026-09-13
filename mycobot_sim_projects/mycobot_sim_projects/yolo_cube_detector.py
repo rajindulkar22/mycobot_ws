@@ -19,6 +19,7 @@ except ModuleNotFoundError:
     raise
 
 import cv2
+import numpy as np
 import rclpy
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PointStamped
@@ -98,12 +99,21 @@ class YoloCubeDetector(Node):
         )
 
     def image_callback(self, message):
+        if message.width < 32 or message.height < 32:
+            return
+
         try:
             image = self.bridge.imgmsg_to_cv2(
                 message,
                 desired_encoding="bgr8",
             )
+        except Exception as error:
+            self.get_logger().error(
+                f"Camera image conversion failed: {error!r}"
+            )
+            return
 
+        try:
             result = self.model.predict(
                 source=image,
                 imgsz=self.image_size,
@@ -191,6 +201,9 @@ class YoloCubeDetector(Node):
                         f"{self.target_class_name} not detected"
                     )
 
+            annotated = np.ascontiguousarray(
+                annotated, dtype=np.uint8
+            )
             annotated_message = self.bridge.cv2_to_imgmsg(
                 annotated,
                 encoding="bgr8",
@@ -200,7 +213,7 @@ class YoloCubeDetector(Node):
 
         except Exception as error:
             self.get_logger().error(
-                f"YOLO inference failed: {error}"
+                f"YOLO inference failed: {type(error).__name__}: {error!r}"
             )
 
 
