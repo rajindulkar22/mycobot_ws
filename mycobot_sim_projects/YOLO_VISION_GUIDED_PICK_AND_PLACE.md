@@ -166,12 +166,12 @@ Validated: PyTorch `2.14.0+cpu`, CUDA `False`, Ultralytics `8.4.143`, OpenCV `4.
 
 ## Gazebo pose-control test
 
-With Gazebo running:
+With Gazebo running (Jazzy / Gazebo Harmonic — use `gz`; on Humble Fortress use `ign` and `ignition.msgs.*`):
 
 ```bash
-ign service -i -s /world/mycobot_world/set_pose
-ign service -s /world/mycobot_world/set_pose \
-  --reqtype ignition.msgs.Pose --reptype ignition.msgs.Boolean \
+gz service -i -s /world/mycobot_world/set_pose
+gz service -s /world/mycobot_world/set_pose \
+  --reqtype gz.msgs.Pose --reptype gz.msgs.Boolean \
   --timeout 3000 --req '
 name: "pick_cube"
 position { x: 0.10 y: 0.10 z: 0.4125 }
@@ -279,9 +279,9 @@ class YoloDatasetGenerator(Node):
         )
         result = subprocess.run(
             [
-                "ign", "service", "-s", "/world/mycobot_world/set_pose",
-                "--reqtype", "ignition.msgs.Pose",
-                "--reptype", "ignition.msgs.Boolean",
+                "gz", "service", "-s", "/world/mycobot_world/set_pose",
+                "--reqtype", "gz.msgs.Pose",
+                "--reptype", "gz.msgs.Boolean",
                 "--timeout", "3000", "--req", request,
             ],
             capture_output=True, text=True, timeout=5.0, check=False,
@@ -888,7 +888,7 @@ docker start -ai mycobot-humble
 docker exec -it mycobot-humble bash
 
 # Camera and bridge
-ign topic -l | grep -Ei "overhead|camera|image"
+gz topic -l | grep -Ei "overhead|camera|image"
 ros2 node list | grep overhead_camera_bridge
 ros2 topic info /overhead_camera/image
 ros2 topic echo /overhead_camera/camera_info --once

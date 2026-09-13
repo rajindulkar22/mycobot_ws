@@ -738,7 +738,6 @@ bool buildCartesianPlan(
   const double fraction = group.computeCartesianPath(
       waypoints,
       0.002,   // eef step size (m)
-      5.0,     // jump threshold (m) — reject discontinuous segments
       trajectory,
       true);   // avoid collisions
 
@@ -768,7 +767,7 @@ bool buildCartesianPlan(
   }
 
   timed.getRobotTrajectoryMsg(trajectory);
-  plan.trajectory_ = trajectory;
+  plan.trajectory = trajectory;
   return true;
 }
 

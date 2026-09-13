@@ -1,8 +1,10 @@
-# myCobot 280 Jetson Nano — ROS 2 Humble Docker Simulation Guide
+# myCobot 280 Jetson Nano — ROS 2 Jazzy Docker Simulation Guide
+
+> **Branch:** `jazzy`. Humble Docker guide: checkout **`main`**. Jazzy details: [JAZZY_MIGRATION.md](JAZZY_MIGRATION.md).
 
 For workspace packages, commands, pick-and-place workflow, and recent changes, see [README.md](README.md).
 
-This guide records the complete environment created for running the Elephant Robotics `mycobot_ros2` repository on an Ubuntu 24.04 host while keeping ROS 2 Jazzy installed locally. ROS 2 Humble runs inside an Ubuntu 22.04 Docker container, while Cursor edits the workspace directly from the host.
+This guide records the Jazzy simulation environment: ROS 2 Jazzy and Gazebo Harmonic inside Docker `mycobot-jazzy` (Noble), while Cursor edits the workspace from the host. The parallel Humble container (`mycobot-humble`) remains available on **`main`**.
 
 ## 1. Environment architecture
 
@@ -107,6 +109,51 @@ From another host terminal:
 ```bash
 docker stop mycobot-humble
 ```
+
+---
+
+## Jazzy container (parallel — this branch)
+
+Use **`mycobot-jazzy`** for ROS 2 Jazzy + Gazebo Harmonic. Do not remove `mycobot-humble` if you still need the Humble path on **`main`**.
+
+| Component | Configuration |
+|---|---|
+| Container | `mycobot-jazzy` |
+| Docker image | `osrf/ros:jazzy-desktop-full-noble` |
+| ROS inside container | Jazzy |
+| Gazebo | Harmonic (`gz` CLI) |
+
+### Create the Jazzy container (once)
+
+```bash
+bash ~/mycobot_ws/src/scripts/create-mycobot-jazzy-container.sh
+```
+
+### Install Jazzy dependencies (inside container)
+
+```bash
+source /opt/ros/jazzy/setup.bash
+bash /root/mycobot_ws/src/scripts/jazzy-docker-deps.sh
+bash /root/mycobot_ws/src/scripts/yolo-env-jazzy.sh
+```
+
+### Start / enter Jazzy container
+
+```bash
+xhost +local:docker
+docker start -ai mycobot-jazzy
+# or
+docker exec -it mycobot-jazzy bash
+```
+
+Inside the container:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source /root/mycobot_ws/install/setup.bash
+```
+
+When switching between git branches `main` ↔ `jazzy`, delete `build/`, `install/`, and `log/` under `~/mycobot_ws` before rebuilding.
 
 Alternatively, type `exit` at the main interactive container prompt.
 

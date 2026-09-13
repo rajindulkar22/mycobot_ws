@@ -144,14 +144,14 @@ names:
         )
 
         command = [
-            "ign",
+            "gz",
             "service",
             "-s",
             "/world/mycobot_world/set_pose",
             "--reqtype",
-            "ignition.msgs.Pose",
+            "gz.msgs.Pose",
             "--reptype",
-            "ignition.msgs.Boolean",
+            "gz.msgs.Boolean",
             "--timeout",
             "3000",
             "--req",

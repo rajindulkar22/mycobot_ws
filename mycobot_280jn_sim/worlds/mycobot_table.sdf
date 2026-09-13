@@ -14,7 +14,7 @@
       filename="gz-sim-physics-system"
       name="gz::sim::systems::Physics">
       <engine>
-        <filename>ignition-physics-dartsim-plugin</filename>
+        <filename>gz-physics-dartsim-plugin</filename>
       </engine>
     </plugin>
 

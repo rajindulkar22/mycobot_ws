@@ -1,15 +1,16 @@
 # myCobot 280 JN — Simulation Workspace
 
-ROS 2 Humble workspace for the Elephant Robotics myCobot 280 Jetson Nano with adaptive gripper: RViz learning demos, Gazebo physics, hand-tuned pick-and-place, MoveIt 2 planning, and C++ MoveIt exercises.
+> **You are on the `jazzy` branch** — ROS 2 Jazzy + Gazebo Harmonic + Docker `mycobot-jazzy`.  
+> Stable Humble path: switch to **`main`** and use `mycobot-humble`. Full setup: [JAZZY_MIGRATION.md](JAZZY_MIGRATION.md).
 
-**Branches:** Stable **`main`** (ROS 2 Humble + Docker `mycobot-humble`). Experimental **`jazzy`** (ROS 2 Jazzy + Docker `mycobot-jazzy`) — see [JAZZY_MIGRATION.md](JAZZY_MIGRATION.md) on that branch.
+ROS 2 Jazzy workspace for the Elephant Robotics myCobot 280 Jetson Nano with adaptive gripper: RViz learning demos, Gazebo physics, hand-tuned pick-and-place, MoveIt 2 planning, and C++ MoveIt exercises.
 
-**Environment:** Ubuntu host + Docker container `mycobot-humble`. Workspace bind-mount: `/home/raj/mycobot_ws` ↔ `/root/mycobot_ws`.
+**Environment:** Ubuntu host + Docker container `mycobot-jazzy` (Noble). Workspace bind-mount: `/home/raj/mycobot_ws` ↔ `/root/mycobot_ws`.
 
-**Always inside Docker before any ROS command:**
+**Always inside the Jazzy container before any ROS command:**
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 ```
 
@@ -212,12 +213,12 @@ Requires Gazebo + MoveIt (`gazebo_moveit_stack.launch.py`). See [Autonomous colo
 
 ```bash
 # Terminal 1 — sim + MoveIt
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 
 # Terminal 2 — sort with YOLO (default)
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 ros2 run mycobot_sim_projects gripper_commander -- open
 ros2 launch mycobot_moveit_projects sort_cubes.launch.py
@@ -525,7 +526,7 @@ flowchart LR
 ### One-launch pick (recommended)
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 
 # Terminal 1 — Gazebo + MoveIt (bridges overhead camera; synced sim clock)
@@ -604,7 +605,7 @@ ros2 pkg executables mycobot_sim_projects | grep color_cube_detector
 ### Prerequisites
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 colcon build --symlink-install --packages-select \
   mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
@@ -745,7 +746,7 @@ If a pick fails you see e.g. `Red cube operation failed (exit 1). Stopping the s
 
 | Component | Version / note |
 |-----------|----------------|
-| ROS 2 Humble | Ubuntu 22.04 in Docker (`mycobot-humble`) |
+| ROS 2 Jazzy | Ubuntu 24.04 Noble in Docker (`mycobot-jazzy`) |
 | Gazebo | Fortress / Ignition Gazebo |
 | MoveIt 2 + `ros2_control` | `gazebo_moveit_stack.launch.py` |
 | PyTorch | `2.14.0+cpu` (CUDA not required) |
@@ -811,7 +812,7 @@ python3 -m pip install ultralytics
 Verify:
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 source /root/yolo_env/bin/activate
 python3 - <<'PY'
@@ -837,7 +838,7 @@ python3 -m pip install --no-cache-dir --retries 10 --timeout 120 \
 
 ```bash
 cd /root/mycobot_ws
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/yolo_env/bin/activate
 colcon build --symlink-install --packages-select \
   mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
@@ -938,7 +939,7 @@ ros2 run rqt_image_view rqt_image_view   # choose /selected_cube/annotated_image
 **Terminal 1** — combined sim stack (recommended; do **not** also launch `gazebo_sim.launch.py` separately):
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 ```
@@ -946,7 +947,7 @@ ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 **Terminal 2** — pick (YOLO is default):
 
 ```bash
-source /opt/ros/humble/setup.bash
+source /opt/ros/jazzy/setup.bash
 source /root/mycobot_ws/install/setup.bash
 source /root/yolo_env/bin/activate
 ros2 run mycobot_sim_projects gripper_commander -- open
@@ -1152,7 +1153,7 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 
 These rules prevent the most common repeat mistakes:
 
-1. **Always source inside Docker** before any ROS command (`/opt/ros/humble` + workspace `install/setup.bash`).
+1. **Always source inside the Jazzy container** before any ROS command (`/opt/ros/jazzy` + workspace `install/setup.bash`).
 2. **Gazebo first** — every sim node, FSM, and MoveIt client needs `gazebo_sim.launch.py` running with active controllers.
 3. **`pick_cube` ≠ FSM** — calibrated grasp is only in `gazebo_pose_commander.py`; the state machine is a generic teaching demo.
 4. **Rebuild + full Gazebo restart** after URDF, world, or controller YAML changes; verify cube size with `grep "Cube size"` in install.
@@ -1192,7 +1193,7 @@ These rules prevent the most common repeat mistakes:
 | FSM / pick: controller unavailable | Gazebo not running or controllers not spawned | Launch `gazebo_sim.launch.py` first |
 | RViz / UI won't open | No DISPLAY | `xhost +local:docker` on host |
 | Stale packages after container restart | Old sourced environment | Re-source both setup.bash files |
-| `pick_cube` misses cube | Cube knocked over | Reset sim; check cube with `ign model -m pick_cube --pose` |
+| `pick_cube` misses cube | Cube knocked over | Reset sim; check cube with `gz model -m pick_cube --pose` |
 | FSM Stop seems slow | Stop checked between states only | Current arm/gripper action must finish first |
 | `No cube detection received within 10 seconds` | Vision not running | Use `cube_approach.launch.py` (includes vision) or start `color_cube_detector` + `pixel_to_world`; check `/overhead_camera/image` |
 | `No executable found` (color_cube_detector) | Stale build / missing entry point | `colcon build --packages-select mycobot_sim_projects`; source install |
@@ -1217,8 +1218,8 @@ ros2 topic info /clock -v    # Publisher count must be 1
 ros2 topic hz /clock         # ~500 Hz = healthy; ~1500 = triple publisher
 ros2 topic echo /clock --once
 ros2 topic echo /joint_states --once
-ign model -m pick_cube --pose
-pgrep -af "ign gazebo|clock_bridge|move_group"
+gz model -m pick_cube --pose
+pgrep -af "gz sim|clock_bridge|move_group"
 
 # YOLO / vision pipeline
 ros2 topic hz /overhead_camera/image

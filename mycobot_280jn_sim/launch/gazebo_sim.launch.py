@@ -43,6 +43,7 @@ def generate_launch_description():
             [
                 os.path.dirname(description_share),
                 os.path.dirname(simulation_share),
+                os.environ.get("GZ_SIM_RESOURCE_PATH", ""),
                 os.environ.get("IGN_GAZEBO_RESOURCE_PATH", ""),
             ],
         )
