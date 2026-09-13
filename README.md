@@ -2,6 +2,8 @@
 
 ROS 2 Humble workspace for the Elephant Robotics myCobot 280 Jetson Nano with adaptive gripper: RViz learning demos, Gazebo physics, hand-tuned pick-and-place, MoveIt 2 planning, and C++ MoveIt exercises.
 
+**Branches:** Stable **`main`** (ROS 2 Humble + Docker `mycobot-humble`). Experimental **`jazzy`** (ROS 2 Jazzy + Docker `mycobot-jazzy`) — see [JAZZY_MIGRATION.md](JAZZY_MIGRATION.md) on that branch.
+
 **Environment:** Ubuntu host + Docker container `mycobot-humble`. Workspace bind-mount: `/home/raj/mycobot_ws` ↔ `/root/mycobot_ws`.
 
 **Always inside Docker before any ROS command:**
