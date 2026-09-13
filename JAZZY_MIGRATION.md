@@ -192,6 +192,8 @@ Expected: `data: true`.
 | `package 'controller_manager' not found` | Run `bash /root/mycobot_ws/src/scripts/jazzy-docker-deps.sh` or `apt install ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-gz-ros2-control` |
 | `Failed to load system plugin [gz_ros2_control-system]` | Same — `ros-jazzy-gz-ros2-control` not installed |
 | Arm collapsed / no joint motion | Controllers never started (see above); relaunch after installing deps |
+| `Activated mimic joints cannot have command interfaces` | Fixed on `jazzy` branch URDF — rebuild `mycobot_280jn_sim` |
+| `No module named moveit_configs_utils'` | `apt install ros-jazzy-moveit-configs-utils` or run `jazzy-docker-deps.sh` |
 | `failed to load driver: nvidia-drm` in Docker | Usually harmless if the Gazebo window still opens; sim physics runs |
 
 After installing missing apt packages, **restart the launch** (Ctrl+C, then run again).
