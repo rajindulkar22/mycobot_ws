@@ -132,7 +132,7 @@ If MoveIt planning fails at runtime, regenerate SRDF/OMPL with MoveIt Setup Assi
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /root/mycobot_ws/install/setup.bash
+source /root/mycobot_ws/install_jazzy/setup.bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 ```
 
@@ -185,7 +185,20 @@ Expected: `data: true`.
 
 ---
 
-## 7. Status checklist
+## 7. Troubleshooting launch failures
+
+| Symptom | Fix |
+|---|---|
+| `package 'controller_manager' not found` | Run `bash /root/mycobot_ws/src/scripts/jazzy-docker-deps.sh` or `apt install ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-gz-ros2-control` |
+| `Failed to load system plugin [gz_ros2_control-system]` | Same — `ros-jazzy-gz-ros2-control` not installed |
+| Arm collapsed / no joint motion | Controllers never started (see above); relaunch after installing deps |
+| `failed to load driver: nvidia-drm` in Docker | Usually harmless if the Gazebo window still opens; sim physics runs |
+
+After installing missing apt packages, **restart the launch** (Ctrl+C, then run again).
+
+---
+
+## 8. Status checklist
 
 | Component | Status |
 |---|---|
@@ -198,7 +211,7 @@ Expected: `data: true`.
 
 ---
 
-## 8. Branch workflow
+## 9. Branch workflow
 
 ```bash
 cd ~/mycobot_ws/src
