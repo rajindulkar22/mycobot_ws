@@ -11,14 +11,16 @@ This guide records the Jazzy simulation environment: ROS 2 Jazzy and Gazebo Harm
 | Component | Configuration |
 |---|---|
 | Host operating system | Ubuntu 24.04 |
-| Host ROS version | ROS 2 Jazzy |
-| Container operating system | Ubuntu 22.04 Jammy |
-| Container ROS version | ROS 2 Humble |
-| Docker image | `osrf/ros:humble-desktop-full-jammy` |
-| Docker container | `mycobot-humble` |
+| Host ROS version | ROS 2 Jazzy (optional; primary work is in Docker) |
+| Container operating system | Ubuntu 24.04 Noble |
+| Container ROS version | ROS 2 Jazzy |
+| Docker image | `osrf/ros:jazzy-desktop-full-noble` |
+| Docker container | `mycobot-jazzy` |
 | Host workspace | `/home/raj/mycobot_ws` |
 | Container workspace | `/root/mycobot_ws` |
-| Repository branch | `humble` |
+| Build / install dirs | `build_jazzy/`, `install_jazzy/`, `log_jazzy/` |
+| Repository branch | `jazzy` |
+| Gazebo | Harmonic (`gz sim`) |
 | Robot package | `mycobot_280jn` |
 
 The host workspace is bind-mounted into the container:
@@ -150,10 +152,18 @@ Inside the container:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /root/mycobot_ws/install/setup.bash
+source /root/mycobot_ws/install_jazzy/setup.bash
 ```
 
-When switching between git branches `main` ↔ `jazzy`, delete `build/`, `install/`, and `log/` under `~/mycobot_ws` before rebuilding.
+When switching between git branches `main` ↔ `jazzy`, delete build artifacts under `~/mycobot_ws` before rebuilding (`build_jazzy/`, `install_jazzy/`, `log_jazzy/` for Jazzy; `build/`, `install/`, `log/` for Humble).
+
+### Clean restart after failed sim launches
+
+```bash
+pkill -f parameter_bridge; pkill -f gazebo_moveit_stack; pkill -f move_group; pkill -f "gz sim"; sleep 5
+```
+
+Then launch **one** `gazebo_moveit_stack.launch.py`. See [JAZZY_MIGRATION.md](JAZZY_MIGRATION.md) §7.
 
 Alternatively, type `exit` at the main interactive container prompt.
 

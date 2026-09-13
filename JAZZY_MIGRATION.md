@@ -122,14 +122,21 @@ If MoveIt planning fails at runtime, regenerate SRDF/OMPL with MoveIt Setup Assi
 |---|---|
 | `mycobot_280jn_sim/worlds/mycobot_table.sdf` | `gz-physics-dartsim-plugin` (Harmonic) |
 | `mycobot_280jn_sim/launch/gazebo_sim.launch.py` | `GZ_SIM_RESOURCE_PATH` preferred for meshes |
-| `generate_yolo_dataset.py` | `gz service` + `gz.msgs.*` |
-| Dataset / debug docs | `gz topic`, `gz service` |
+| `mycobot_280jn_sim.urdf.xacro` | Mimic gripper joints: state-only in ros2_control (no command interfaces on Jazzy) |
+| `generate_yolo_dataset.py` | `gz service` + `gz.msgs.*` (replaces Fortress `ign`) |
+| `mycobot_moveit_projects` C++ | MoveIt Jazzy API: `plan.trajectory`; no `jump_threshold` in `computeCartesianPath` |
+| `joint_limits.yaml` | **Arm acceleration limits required** (`max_acceleration: 1.0`) — Jazzy `AddTimeOptimalParameterization` fails without them |
+| `pixel_to_world.py` | SDF default camera intrinsics (640×480, fx≈554.26) until `/overhead_camera/camera_info` arrives |
+| `cube_approach.cpp` | Vision wait before arm settle (30 s timeout); `group.stop()` before execution retry |
+| `scripts/jazzy-docker-deps.sh` | Adds `ros-jazzy-moveit-simple-controller-manager`, planners meta-package, ros2_control stack |
+| `scripts/yolo-env-jazzy.sh` | Python 3.12 venv; pins OpenCV 4.x + numpy&lt;2 (OpenCV 5 breaks `cv_bridge`) |
+| Dataset / debug docs | `gz topic`, `gz service` (not `ign`) |
 
 ---
 
 ## 6. Smoke tests
 
-**Terminal 1 — stack**
+**Terminal 1 — stack (one launch only)**
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -137,7 +144,16 @@ source /root/mycobot_ws/install_jazzy/setup.bash
 ros2 launch mycobot_280jn_moveit_config gazebo_moveit_stack.launch.py
 ```
 
-Pass: `/clock` publishing, `/overhead_camera/image` visible.
+Wait ~15 s for `You can start planning now!`
+
+Pass checks:
+
+```bash
+ros2 topic hz /clock --window 3          # ~500 Hz
+ros2 topic echo /overhead_camera/camera_info --once
+pgrep -c parameter_bridge                 # must be 2 (clock + camera)
+pgrep -af "/move_group"                   # must be 1 process
+```
 
 **Terminal 2 — YOLO detector**
 
@@ -188,17 +204,42 @@ Expected: `data: true`.
 
 ## 7. Troubleshooting launch failures
 
+### Clean restart (run this first when things go wrong)
+
+Orphaned `parameter_bridge` processes from prior launches cause sim-clock jumps and MoveIt execution aborts:
+
+```bash
+pkill -f parameter_bridge
+pkill -f gazebo_moveit_stack
+pkill -f move_group
+pkill -f "gz sim"
+sleep 5
+ros2 daemon stop && ros2 daemon start
+```
+
+Then launch **one** `gazebo_moveit_stack.launch.py`. Ghost `/move_group` lines in `ros2 node list` are OK if `pgrep -af move_group` shows **one** process.
+
+### Symptom table
+
 | Symptom | Fix |
 |---|---|
 | `package 'controller_manager' not found` | Run `bash /root/mycobot_ws/src/scripts/jazzy-docker-deps.sh` or `apt install ros-jazzy-ros2-control ros-jazzy-ros2-controllers ros-jazzy-gz-ros2-control` |
 | `Failed to load system plugin [gz_ros2_control-system]` | Same — `ros-jazzy-gz-ros2-control` not installed |
+| `MoveItSimpleControllerManager does not exist` | `apt install ros-jazzy-moveit-simple-controller-manager` or run `jazzy-docker-deps.sh` |
 | Arm collapsed / no joint motion | Controllers never started (see above); relaunch after installing deps |
 | `Activated mimic joints cannot have command interfaces` | Fixed on `jazzy` branch URDF — rebuild `mycobot_280jn_sim` |
 | `No module named moveit_configs_utils'` | `apt install ros-jazzy-moveit-configs-utils` or run `jazzy-docker-deps.sh` |
 | `CHOMPPlanner` / `CommandPlanner` / `StompPlanner ... does not exist` | `apt install ros-jazzy-moveit-planners` (installs OMPL, CHOMP, Pilz, STOMP) |
+| Planning OK in move_group log but client says `Planning failed` | Check move_group for `No acceleration limit` — rebuild `mycobot_280jn_moveit_config` (Jazzy needs acceleration limits) |
+| YOLO detects but `No cube detection received` | Rebuild `mycobot_sim_projects` — `pixel_to_world` now publishes with SDF defaults; verify `/selected_cube/world_center` |
+| YOLO `inference failed: 16` | Re-run `yolo-env-jazzy.sh` (OpenCV 4.x pin) |
+| `Detected jump back in time` | Orphaned bridges — full cleanup above |
+| `Current goal preempted by new incoming action` | Duplicate stacks — full cleanup; one stack only |
+| `Attached body 'pick_cube' not found` | Harmless on first pick — ignore |
 | `failed to load driver: nvidia-drm` in Docker | Usually harmless if the Gazebo window still opens; sim physics runs |
+| CMake path mismatch (host vs container) | `rm -rf build_jazzy install_jazzy log_jazzy`; rebuild only inside container |
 
-After installing missing apt packages, **restart the launch** (Ctrl+C, then run again).
+After installing missing apt packages or rebuilding, **restart the launch** (Ctrl+C, then run again).
 
 ---
 
@@ -206,11 +247,12 @@ After installing missing apt packages, **restart the launch** (Ctrl+C, then run 
 
 | Component | Status |
 |---|---|
-| Gazebo Harmonic world load | Passed (headless `gz sim`, camera topics) |
-| `colcon build` (all packages) | Passed on host Jazzy (MoveIt API fixes applied) |
-| ros_gz bridge + MoveIt stack | Verify full stack in `mycobot-jazzy` container |
-| YOLO detect + pick (`cube_approach`) | Verify in container with `/root/yolo_env` |
-| Sort sequence (`sort_cubes`) | Verify in container |
+| Gazebo Harmonic world load | Passed |
+| `colcon build` (all packages in container) | Passed with `build_jazzy` / `install_jazzy` |
+| ros2_control + three controllers active | Passed after `jazzy-docker-deps.sh` |
+| MoveIt planning + execution (`cube_approach`) | Passed (acceleration limits + controller manager) |
+| YOLO detect + pixel_to_world + pick | Passed (OpenCV 4.x venv, default intrinsics) |
+| Sort sequence (`sort_cubes`) | Passed (red pick verified end-to-end) |
 | Dataset generator (`gz service`) | Code ported; verify with Gazebo running |
 
 ---

@@ -26,6 +26,7 @@ apt-get install -y --no-install-recommends \
   ros-jazzy-moveit-planners \
   ros-jazzy-moveit-ros-planning-interface \
   ros-jazzy-moveit-ros-move-group \
+  ros-jazzy-moveit-simple-controller-manager \
   ros-jazzy-xacro \
   ros-jazzy-robot-state-publisher \
   ros-jazzy-joint-state-publisher \
