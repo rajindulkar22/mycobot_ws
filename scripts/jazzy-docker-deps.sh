@@ -25,6 +25,7 @@ apt-get install -y --no-install-recommends \
   ros-jazzy-moveit-configs-utils \
   ros-jazzy-moveit-planners-ompl \
   ros-jazzy-moveit-planners-chomp \
+  ros-jazzy-pilz-industrial-motion-planner \
   ros-jazzy-moveit-ros-planning-interface \
   ros-jazzy-moveit-ros-move-group \
   ros-jazzy-xacro \
