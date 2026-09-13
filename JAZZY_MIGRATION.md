@@ -57,7 +57,13 @@ source /opt/ros/jazzy/setup.bash
 bash /root/mycobot_ws/src/scripts/jazzy-docker-deps.sh
 ```
 
-This installs `ros-jazzy-ros-gz`, MoveIt, ros2_control, colcon, and related packages.
+This installs `ros-jazzy-ros-gz`, MoveIt, ros2_control, colcon, and related packages. **Run this before the first build** — skipping it causes errors like missing `control_msgs` or `moveit_ros_planning_interface`.
+
+If `git checkout jazzy` fails with *dubious ownership* inside the container:
+
+```bash
+git config --global --add safe.directory /root/mycobot_ws/src
+```
 
 ### mycobot_description
 
@@ -95,9 +101,10 @@ colcon build --symlink-install --packages-select \
 source install/setup.bash
 ```
 
-If the host `log/` directory was created by Docker as root, use separate bases:
+**Build only inside the container** (or only on the host) for `build_jazzy` / `install_jazzy`. Mixing host and container paths breaks CMake caches. Before the first container build:
 
 ```bash
+rm -rf /root/mycobot_ws/build_jazzy /root/mycobot_ws/install_jazzy /root/mycobot_ws/log_jazzy
 export COLCON_LOG_PATH=/root/mycobot_ws/log_jazzy
 colcon build --symlink-install \
   --build-base build_jazzy --install-base install_jazzy \

@@ -35,7 +35,10 @@ apt-get install -y --no-install-recommends \
   ros-jazzy-ros-gz-bridge \
   ros-jazzy-ros-gz-sim \
   ros-jazzy-tf2-ros \
-  ros-jazzy-tf2-geometry-msgs
+  ros-jazzy-tf2-geometry-msgs \
+  ros-jazzy-control-msgs \
+  ros-jazzy-shape-msgs \
+  ros-jazzy-rclcpp-action
 
 rosdep init 2>/dev/null || true
 rosdep update
