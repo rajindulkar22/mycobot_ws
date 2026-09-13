@@ -1,12 +1,14 @@
 # mycobot_yolo_assets
 
-Version-controlled YOLO assets for Project 17 (cube detection):
+Version-controlled **YOLO11n** assets for Project 17 (AI-based cube detection in simulation):
 
 | Path under `assets/` | Contents |
 |----------------------|----------|
 | `yolo11n.pt` | Ultralytics base model |
-| `dataset/` | Sim training images, labels, `data.yaml` |
-| `runs/cube_detector/` | Trained weights (`best.pt`, `last.pt`) and metrics |
+| `dataset/` | 310 sim images, labels, `data.yaml` (243 train / 67 val) |
+| `runs/cube_detector/` | Trained weights (`best.pt`, `last.pt`), metrics, plots |
+
+**Validated model (sim):** mAP50 **0.995**, precision **0.999**, recall **1.000** — see [YOLO handoff](../mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md).
 
 **Demo:** [Dataset generation screencast](media/yolo_dataset_generation.webm)
 

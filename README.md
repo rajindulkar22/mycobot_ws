@@ -67,10 +67,10 @@ Docker setup, X11, and host-vs-container rules: [myCobot_280_JN_Docker_Simulatio
 |---------|---------|-----------|
 | [`mycobot_ros2/`](mycobot_ros2/) | Upstream Elephant Robotics (`humble` branch) | Slider GUIs, descriptions |
 | [`mycobot_280jn_sim/`](mycobot_280jn_sim/) | Gazebo sim | `gazebo_sim.launch.py`, `mycobot_table.sdf`, `controllers.yaml`, URDF |
-| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + theory | `gazebo_pose_commander.py`, `color_cube_detector.py`, `yolo_cube_detector.py`, `generate_yolo_dataset.py`, `pixel_to_world.py`, `THEORY.md` |
+| [`mycobot_sim_projects/`](mycobot_sim_projects/) | Python nodes + vision/AI | `yolo_cube_detector`, `generate_yolo_dataset`, `color_cube_detector`, [README](mycobot_sim_projects/README.md), [YOLO handoff](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) |
 | [`mycobot_yolo_assets/`](mycobot_yolo_assets/) | YOLO dataset + weights (GitHub) | `assets/dataset/`, `assets/runs/cube_detector/weights/best.pt`, `assets/yolo11n.pt` |
 | [`mycobot_280jn_moveit_config/`](mycobot_280jn_moveit_config/) | MoveIt 2 config | SRDF, OMPL, `gazebo_move_group.launch.py` |
-| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos | `named_targets`, `pose_target`, `cartesian_path`, `cube_approach`, `sort_cubes`, `planning_scene_objects`, `test_obstacle` |
+| [`mycobot_moveit_projects/`](mycobot_moveit_projects/) | C++ MoveIt demos + vision pick | `cube_approach`, `sort_cubes`, [README](mycobot_moveit_projects/README.md) |
 
 ---
 
@@ -1140,7 +1140,7 @@ All deep “why” documentation lives in [`mycobot_sim_projects/THEORY.md`](myc
 | [myCobot_280_JN_Docker_Simulation_Guide.md](myCobot_280_JN_Docker_Simulation_Guide.md) | Docker, X11, host commands |
 | [mycobot_sim_projects/THEORY.md](mycobot_sim_projects/THEORY.md) | Full control theory per node |
 | [mycobot_sim_projects/PICK_CUBE_HANDOFF.md](mycobot_sim_projects/PICK_CUBE_HANDOFF.md) | Pick-cube tuning history + joint values |
-| [mycobot_yolo_assets/README.md](mycobot_yolo_assets/README.md) | YOLO assets package layout |
+| [mycobot_sim_projects/README.md](mycobot_sim_projects/README.md) | Python nodes — vision, YOLO11n, pick helpers |
 | [mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md](mycobot_sim_projects/YOLO_VISION_GUIDED_PICK_AND_PLACE.md) | **Project 17** — YOLO install, dataset, training, validation metrics, live detector, pick launch, diagnostics |
 | [mycobot_moveit_projects/README.md](mycobot_moveit_projects/README.md) | C++ MoveIt node details |
 
