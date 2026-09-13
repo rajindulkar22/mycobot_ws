@@ -194,6 +194,7 @@ Expected: `data: true`.
 | Arm collapsed / no joint motion | Controllers never started (see above); relaunch after installing deps |
 | `Activated mimic joints cannot have command interfaces` | Fixed on `jazzy` branch URDF — rebuild `mycobot_280jn_sim` |
 | `No module named moveit_configs_utils'` | `apt install ros-jazzy-moveit-configs-utils` or run `jazzy-docker-deps.sh` |
+| `CHOMPPlanner ... does not exist` | `apt install ros-jazzy-moveit-planners-ompl ros-jazzy-moveit-planners-chomp` |
 | `failed to load driver: nvidia-drm` in Docker | Usually harmless if the Gazebo window still opens; sim physics runs |
 
 After installing missing apt packages, **restart the launch** (Ctrl+C, then run again).
