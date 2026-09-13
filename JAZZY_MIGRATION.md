@@ -76,11 +76,12 @@ Official [elephantrobotics/mycobot_ros2](https://github.com/elephantrobotics/myc
 Inside `mycobot-jazzy`:
 
 ```bash
+apt install -y python3.12-venv   # if venv creation fails
 bash /root/mycobot_ws/src/scripts/yolo-env-jazzy.sh
 source /root/yolo_env/bin/activate
 ```
 
-`yolo_cube_detector` auto-reexecs into `/root/yolo_env` when Ultralytics is not on the system Python.
+`yolo_cube_detector` auto-reexecs into `/root/yolo_env` when Ultralytics is not on the system Python. If you see `No module named ultralytics`, the venv was not created — run the script above.
 
 ---
 
