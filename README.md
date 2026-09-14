@@ -525,9 +525,9 @@ flowchart LR
 ```
 
 1. **Detection** — `color_cube_detector` (HSV) or `yolo_cube_detector` (trained YOLO) finds the target cube and publishes its pixel centre.
-2. **Pinhole projection** — `pixel_to_world` uses `CameraInfo` intrinsics + fixed camera pose to map pixels → table plane in MoveIt `world`.
+2. **Pinhole projection** — `pixel_to_world` uses bridged `CameraInfo` intrinsics (SDF defaults until the camera bridge connects) + fixed camera pose to map pixels → table plane in MoveIt `world`.
 3. **Frame conversion** — Gazebo world Z minus **0.405 m** = MoveIt `world` (robot base); cube centre Z = **0.0075 m**.
-4. **MoveIt pick** — `cube_approach` waits for vision (1.5 s stabilize), rotates `joint2_to_joint1` toward the cube, Cartesian descent, attach/detach in planning scene, place, release.
+4. **MoveIt pick** — `cube_approach` waits for `/selected_cube/world_center` (up to 30 s), stabilizes detections (1.5 s), rotates `joint2_to_joint1` toward the cube, Cartesian descent, attach/detach in planning scene, place, release.
 
 **`cube_approach` behaviour (verified):**
 
@@ -702,7 +702,7 @@ stateDiagram-v2
 | **BluePick** | `cube_approach.launch.py target_color:=blue place_x:=-0.10 ...` | Log *All cubes sorted successfully* → `Shutdown` | `Shutdown` |
 | **Failed** | — | — | Log which colour failed; no further picks |
 
-**Success detection:** Humble `ros2 launch` returns exit code **0 even when `cube_approach` failed** (shutdown event). Each pick is wrapped in bash that:
+**Success detection:** `ros2 launch` returns exit code **0 even when `cube_approach` failed** (shutdown event). Each pick is wrapped in bash that:
 
 1. Pipes output to `/tmp/sort_{color}_pick.log`
 2. Exits **0** only if the log contains `Pick-and-place complete`
@@ -714,7 +714,8 @@ Inside each child launch, `cube_approach` (MoveIt C++) runs:
 
 ```text
 open gripper (if needed)
-  → wait for vision (1.5 s stabilize)
+  → wait for /selected_cube/world_center (up to 30 s)
+  → arm settle → 1.5 s vision stabilize
   → rotate joint1 toward cube
   → Cartesian approach + descend
   → close gripper → lift
@@ -861,8 +862,9 @@ python3 -m pip install --no-cache-dir --retries 10 --timeout 120 \
 cd /root/mycobot_ws
 source /opt/ros/jazzy/setup.bash
 source /root/yolo_env/bin/activate
-colcon build --symlink-install --packages-select \
-  mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
+colcon build --symlink-install \
+  --build-base build_jazzy --install-base install_jazzy \
+  --packages-select mycobot_yolo_assets mycobot_sim_projects mycobot_moveit_projects
 source install_jazzy/setup.bash
 ```
 
@@ -1019,8 +1021,8 @@ ros2 action list | grep move_group
 | Cube hidden during grasp | Camera directly above robot | Use shifted pose `(0.30, -0.25, 1.30)` — already in world SDF |
 | Dataset labels missing | Stale frames after cube move | Generator waits 6 fresh callbacks — rebuild if using old script |
 | `torch` / `ultralytics` missing | Not in system Python | Use `/root/yolo_env`; node auto-reexecs into venv |
-| `cv_bridge` unavailable in venv | Isolated venv | Create venv with `--system-site-packages` |
-| YOLO cannot find weights | Package not built or stale install | `colcon build --symlink-install --packages-select mycobot_yolo_assets`; source install |
+| `cv_bridge` error 16 / inference failed | OpenCV 5 in venv | Run `bash scripts/yolo-env-jazzy.sh` (pins OpenCV 4.x + numpy&lt;2) |
+| YOLO cannot find weights | Package not built or stale install | `colcon build --symlink-install --build-base build_jazzy --install-base install_jazzy --packages-select mycobot_yolo_assets`; source `install_jazzy/setup.bash` |
 | Annotated image OK but robot still | `move_group` or controllers down | Check `/selected_cube/world_center`, joint states, action servers |
 | Wrong cube selected | Wrong `target_color` | Use only `red`, `green`, or `blue` |
 
@@ -1208,7 +1210,7 @@ These rules prevent the most common repeat mistakes:
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Cube still 40 mm in Gazebo | Stale world / symlink | Rebuild `mycobot_280jn_sim`, restart Gazebo, `grep "Cube size"` in install |
+| Cube still 40 mm in Gazebo | Stale world / symlink | Rebuild `mycobot_280jn_sim`, restart Gazebo, `grep "Cube size"` in `install_jazzy/` |
 | `EACCES` saving files on host | Docker created files as `nobody` | `sudo chown -R $USER:$USER ~/mycobot_ws/src/<package>` |
 | Pick hangs after gripper close | Old `mycobot_sim_projects` install | Rebuild; needs close timeout fix |
 | `No simulation clock received` (cartesian_path) | Gazebo not running, or `/clock` not bridged to ROS | Launch `gazebo_sim.launch.py` first; verify with `ros2 topic hz /clock` (must show data). If Gazebo is up but `/clock` has no publisher, rebuild `mycobot_280jn_sim` — the launch file includes a `ros_gz_bridge` clock bridge. |
@@ -1231,7 +1233,7 @@ These rules prevent the most common repeat mistakes:
 | `pick_cube` misses cube | Cube knocked over | Reset sim; check cube with `gz model -m pick_cube --pose` |
 | FSM Stop seems slow | Stop checked between states only | Current arm/gripper action must finish first |
 | `No cube detection received within 30 seconds` | YOLO OK but no `world_center` | Check `pixel_to_world` logs; `ros2 topic echo /selected_cube/world_center --once`; ensure stack is running. |
-| `No executable found` (color_cube_detector) | Stale build / missing entry point | `colcon build --packages-select mycobot_sim_projects`; source install |
+| `No executable found` (color_cube_detector) | Stale build / missing entry point | `colcon build --build-base build_jazzy --install-base install_jazzy --packages-select mycobot_sim_projects`; source `install_jazzy/setup.bash` |
 | Robot picks wrong cube | Wrong `target_color` or duplicate detectors | `target_color:=blue` for blue; one detector only; check `Vision cube position` in `cube_approach` log |
 | `pixel_to_world` silent / no world_center | No camera_info yet (older builds) | Rebuild `mycobot_sim_projects` — Jazzy branch uses SDF defaults until bridge connects; check `ros2 topic hz /overhead_camera/camera_info` |
 | Sort stops after red / false “All sorted” | Old launch or gripper stuck closed | Rebuild `mycobot_moveit_projects`; use current `sort_cubes.launch.py`; check `/tmp/sort_red_pick.log` for `Pick-and-place complete` |
