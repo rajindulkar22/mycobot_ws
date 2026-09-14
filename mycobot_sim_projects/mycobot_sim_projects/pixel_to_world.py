@@ -38,22 +38,25 @@ class PixelToWorld(Node):
         self.declare_parameter("camera_y", -0.25)
         self.declare_parameter("camera_z", 0.895)
         self.declare_parameter("object_z", 0.0075)
+        # Defaults match overhead_camera in mycobot_table.sdf (640x480, hfov=1.0472).
+        self.declare_parameter("default_fx", 554.26)
+        self.declare_parameter("default_fy", 554.26)
+        self.declare_parameter("default_cx", 320.0)
+        self.declare_parameter("default_cy", 240.0)
 
+        self.camera_x = self.get_parameter("camera_x").value
+        self.camera_y = self.get_parameter("camera_y").value
+        self.camera_z = self.get_parameter("camera_z").value
+        self.object_z = self.get_parameter("object_z").value
 
-        self.camera_x = self.get_parameter("camera_x").value # get the value of the parameter camera_x
-        self.camera_y = self.get_parameter("camera_y").value # get the value of the parameter camera_y
-        self.camera_z = self.get_parameter("camera_z").value # get the value of the parameter camera_z
-        self.object_z = self.get_parameter("object_z").value # get the value of the parameter object_z
-
-        # Pinhole intrinsics from CameraInfo.k (filled in camera_info_callback).
-        #   K = [ fx   0  cx ]
-        #       [  0  fy  cy ]
-        #       [  0   0   1 ]
-        self.fx = None
-        self.fy = None
-        self.cx = None
-        self.cy = None
+        # Pinhole intrinsics from CameraInfo.k when bridged; SDF defaults otherwise.
+        self.fx = self.get_parameter("default_fx").value
+        self.fy = self.get_parameter("default_fy").value
+        self.cx = self.get_parameter("default_cx").value
+        self.cy = self.get_parameter("default_cy").value
+        self.intrinsics_from_camera_info = False
         self.last_log_time = 0.0
+        self.last_missing_info_log_time = 0.0
 
         # Focal length and optical centre — needed for pixel → metre scaling.
         self.create_subscription(
@@ -88,10 +91,15 @@ class PixelToWorld(Node):
     ) -> None:
         """Cache camera intrinsics from the bridged Gazebo camera."""
 
+        if not self.intrinsics_from_camera_info:
+            self.get_logger().info(
+                "Received /overhead_camera/camera_info; using bridged intrinsics."
+            )
         self.fx = message.k[0]
         self.fy = message.k[4]
         self.cx = message.k[2]
         self.cy = message.k[5]
+        self.intrinsics_from_camera_info = True
 
     def pixel_callback(
         self,
@@ -99,9 +107,15 @@ class PixelToWorld(Node):
     ) -> None:
         """Convert one pixel detection to a world-frame table point."""
 
-        # Cannot convert until camera_info has arrived at least once.
-        if self.fx is None:
-            return
+        if not self.intrinsics_from_camera_info:
+            now = time.monotonic()
+            if now - self.last_missing_info_log_time >= 5.0:
+                self.get_logger().warn(
+                    "No /overhead_camera/camera_info yet; using SDF default "
+                    "intrinsics. Restart gazebo_moveit_stack.launch.py if "
+                    "world coordinates look wrong."
+                )
+                self.last_missing_info_log_time = now
 
         # Pixel coordinates from red_cube_detector (image row/column).
         u = message.point.x

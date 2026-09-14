@@ -113,7 +113,7 @@ bool cartesianMove( //generate and execute the straight path between the current
   // 5.0 enables relative joint-jump checking.
   // true enables collision checking.
   const double fraction = group.computeCartesianPath(
-      waypoints, 0.002, 5.0, trajectory, true);
+      waypoints, 0.002, trajectory, true);
 
   RCLCPP_INFO(
       LOGGER, "Cartesian path completion: %.2f%%",
@@ -162,7 +162,7 @@ bool cartesianMove( //generate and execute the straight path between the current
   }
 
   MoveGroup::Plan plan;
-  plan.trajectory_ = trajectory;
+  plan.trajectory = trajectory;
 
   RCLCPP_INFO(LOGGER, "Executing complete Cartesian path.");
 

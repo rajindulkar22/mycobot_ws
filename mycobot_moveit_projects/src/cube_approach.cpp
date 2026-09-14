@@ -693,6 +693,7 @@ void executePlan(
       "%s execution failed; settling, re-planning, and retrying once.",
       label.c_str());
 
+  group.stop();
   waitForArmSettled(group, 10.0);
   group.setStartStateToCurrentState();
 
@@ -710,8 +711,9 @@ void executePlan(
 
   throw std::runtime_error(
       "Execution failed for " + label +
-      ". Restart move_group after restarting Gazebo. "
-      "Do not use gazebo_pose_commander while cube_approach runs.");
+      ". Stop duplicate stacks (pkill -f gazebo_moveit_stack), restart "
+      "gazebo_moveit_stack.launch.py once, then retry. Do not run "
+      "gazebo_pose_commander while cube_approach runs.");
 }
 
 
@@ -738,7 +740,6 @@ bool buildCartesianPlan(
   const double fraction = group.computeCartesianPath(
       waypoints,
       0.002,   // eef step size (m)
-      5.0,     // jump threshold (m) — reject discontinuous segments
       trajectory,
       true);   // avoid collisions
 
@@ -768,7 +769,7 @@ bool buildCartesianPlan(
   }
 
   timed.getRobotTrajectoryMsg(trajectory);
-  plan.trajectory_ = trajectory;
+  plan.trajectory = trajectory;
   return true;
 }
 
@@ -1046,23 +1047,17 @@ int main(int argc, char **argv)
       throw std::runtime_error("Current robot state unavailable.");
     }
 
-    ensureGripperOpen(node, group);
-
-    waitForArmSettled(group, 20.0);
-
-    // Add table collision geometry so plans avoid the tabletop.
-    PlanningSceneInterface planning_scene;
-    ensureTableInScene(planning_scene);
-
-    // --- Wait for vision: first message on /selected_cube/world_center ---
+    // --- Wait for vision before arm settle / planning scene work ---
     RCLCPP_INFO(
         LOGGER,
         "Waiting for cube position from /selected_cube/world_center...");
 
-    // Block up to 10 s for the first valid detection before planning.
+    // Block up to 30 s for pixel_to_world (needs YOLO + camera_info or defaults).
     const auto detection_deadline =
         std::chrono::steady_clock::now() +
-        std::chrono::seconds(10);
+        std::chrono::seconds(30);
+
+    ensureGripperOpen(node, group);
 
     while (rclcpp::ok()) {
       {
@@ -1075,12 +1070,22 @@ int main(int argc, char **argv)
 
       if (std::chrono::steady_clock::now() >= detection_deadline) {
         throw std::runtime_error(
-            "No cube detection received within 10 seconds.");
+            "No cube detection received within 30 seconds. Check "
+            "/selected_cube/pixel_center (YOLO) and "
+            "/selected_cube/world_center (pixel_to_world). Ensure "
+            "gazebo_moveit_stack.launch.py is running and the overhead "
+            "camera bridge is publishing /overhead_camera/camera_info.");
       }
 
       std::this_thread::sleep_for(
           std::chrono::milliseconds(50));
     }
+
+    waitForArmSettled(group, 20.0);
+
+    // Add table collision geometry so plans avoid the tabletop.
+    PlanningSceneInterface planning_scene;
+    ensureTableInScene(planning_scene);
 
     // Let detections settle, then use the latest world_center (not the first).
     RCLCPP_INFO(
